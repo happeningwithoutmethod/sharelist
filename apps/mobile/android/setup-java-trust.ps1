@@ -57,6 +57,6 @@ $keytool = Join-Path $jbr 'bin\keytool.exe'
 
 Write-Host ""
 Write-Host "Trust store ready: $TrustStore"
-Write-Host "gradle.properties already points Gradle at .certs/avg-truststore.jks"
-Write-Host "For the Gradle wrapper itself, also set:"
+Write-Host "settings.gradle.kts sets javax.net.ssl.trustStore to this file's absolute path."
+Write-Host "For the Gradle wrapper itself (optional), also set:"
 Write-Host '  $env:JAVA_TOOL_OPTIONS = "-Djavax.net.ssl.trustStore=$TrustStore -Djavax.net.ssl.trustStorePassword=changeit"'

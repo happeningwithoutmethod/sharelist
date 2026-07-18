@@ -1,4 +1,12 @@
 pluginManagement {
+    // Resolve AVG truststore from this android/ directory, not the process CWD
+    // (IDE sync often uses a different working directory than ./gradlew).
+    val avgTrust = file(".certs/avg-truststore.jks")
+    if (avgTrust.isFile) {
+        System.setProperty("javax.net.ssl.trustStore", avgTrust.absolutePath)
+        System.setProperty("javax.net.ssl.trustStorePassword", "changeit")
+    }
+
     val flutterSdkPath =
         run {
             val properties = java.util.Properties()
@@ -20,7 +28,8 @@ pluginManagement {
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "9.0.1" apply false
-    id("org.jetbrains.kotlin.android") version "2.3.20" apply false
+    // Match Flutter tools' embedded Kotlin (see flutter_tools/gradle/build.gradle.kts).
+    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
 }
 
 include(":app")
