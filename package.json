@@ -1,0 +1,11 @@
+{
+  "name": "share-list",
+  "private": true,
+  "workspaces": [
+    "server"
+  ],
+  "scripts": {
+    "server:dev": "npm run dev --workspace share-list-server",
+    "server:build": "npm run build --workspace share-list-server"
+  }
+}

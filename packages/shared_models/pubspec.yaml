@@ -1,0 +1,14 @@
+name: shared_models
+description: Shared message types and models for Share List
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  build_runner: ^2.4.15
+  json_serializable: ^6.9.5

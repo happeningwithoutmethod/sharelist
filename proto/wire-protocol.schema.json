@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ShareListWireMessage",
+  "description": "WebSocket wire protocol between host, connectors, and relay server",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type", "payload"],
+      "properties": {
+        "type": { "const": "host.start" },
+        "payload": {
+          "type": "object",
+          "required": ["hostGoogleSub"],
+          "properties": {
+            "hostGoogleSub": { "type": "string" },
+            "sessionName": { "type": "string" }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "sessionId", "payload"],
+      "properties": {
+        "type": { "const": "host.state" },
+        "sessionId": { "type": "string" },
+        "payload": { "$ref": "#/definitions/hostState" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "sessionId", "payload"],
+      "properties": {
+        "type": { "const": "connector.join" },
+        "sessionId": { "type": "string" },
+        "payload": {
+          "type": "object",
+          "required": ["displayName", "deviceId"],
+          "properties": {
+            "displayName": { "type": "string" },
+            "deviceId": { "type": "string" }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "track": {
+      "type": "object",
+      "required": ["id", "title", "artist", "sourceUrl", "provider"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "artworkUrl": { "type": "string" },
+        "sourceUrl": { "type": "string" },
+        "provider": { "type": "string" }
+      }
+    },
+    "hostState": {
+      "type": "object",
+      "required": [
+        "sessionName",
+        "playlist",
+        "nowPlayingIndex",
+        "isPlaying",
+        "positionMs",
+        "durationMs",
+        "settings",
+        "voteScores",
+        "pendingRequests",
+        "connectors"
+      ],
+      "properties": {
+        "sessionName": { "type": "string" },
+        "playlist": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/track" }
+        },
+        "nowPlayingIndex": { "type": "integer" },
+        "isPlaying": { "type": "boolean" },
+        "positionMs": { "type": "integer" },
+        "durationMs": { "type": "integer" },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "allowSuggestions": { "type": "boolean" },
+            "allowVoting": { "type": "boolean" },
+            "autoReorderByVotes": { "type": "boolean" },
+            "autoPlaylistAdvance": { "type": "boolean" },
+            "autoApproveRequests": { "type": "boolean" },
+            "requireConnectionApproval": { "type": "boolean" }
+          }
+        },
+        "voteScores": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "pendingRequests": { "type": "array" },
+        "connectors": { "type": "array" }
+      }
+    }
+  }
+}

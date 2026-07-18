@@ -1,0 +1,12 @@
+name: music_providers
+description: Music provider abstractions for Share List
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  http: ^1.3.0
+  shared_models:
+    path: ../shared_models

@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+server/dist/
+
+# Flutter
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# OAuth / API secrets (never commit)
+secrets/
+**/client_secret*.json
+
+# Server play log (persisted analytics)
+server/data/
+
+# TLS certs (generate with server/generate-certs.ps1)
+server/certs/
+
+# Root APK output (counter file BUILD_NUMBER is tracked)
+/build/

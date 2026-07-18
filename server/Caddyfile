@@ -1,0 +1,8 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$HOSTNAME} {
+	encode gzip
+	reverse_proxy share-list:3000
+}

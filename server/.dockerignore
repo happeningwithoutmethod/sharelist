@@ -1,0 +1,13 @@
+node_modules
+dist
+data
+certs
+.env
+.env.*
+!.env.example
+*.md
+run.ps1
+generate-certs.ps1
+.dockerignore
+Dockerfile
+docker-compose*.yml
