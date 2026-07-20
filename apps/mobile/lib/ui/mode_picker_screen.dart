@@ -9,6 +9,7 @@ import '../config/server_config.dart';
 import '../services/auth_service.dart';
 import '../services/device_service.dart';
 import '../services/privacy_service.dart';
+import 'open_external_url.dart';
 
 class ModePickerScreen extends ConsumerStatefulWidget {
   const ModePickerScreen({super.key});
@@ -180,6 +181,10 @@ class _ModePickerScreenState extends ConsumerState<ModePickerScreen> {
                   ),
                   TextButton(
                     onPressed: () {
+                      if (kIsWeb) {
+                        openExternalUrl(youtubeTermsOfServiceUrl);
+                        return;
+                      }
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => const _LegalWebViewScreen(
@@ -193,6 +198,10 @@ class _ModePickerScreenState extends ConsumerState<ModePickerScreen> {
                   ),
                   TextButton(
                     onPressed: () {
+                      if (kIsWeb) {
+                        openExternalUrl(googlePrivacyPolicyUrl);
+                        return;
+                      }
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => const _LegalWebViewScreen(

@@ -12,16 +12,25 @@ final pendingSessionInviteProvider =
 
 /// Listens for app links and stores a [SessionInvite] for the connect flow.
 final deepLinkBootstrapProvider = Provider<void>((ref) {
-  if (kIsWeb) return;
+  Future<void> applyInvite(SessionInvite? invite) async {
+    if (invite == null) return;
+    ref.read(pendingSessionInviteProvider.notifier).state = invite;
+  }
+
+  if (kIsWeb) {
+    // https://…/web/?session=…&server=…  (and legacy hash invites)
+    unawaited(applyInvite(SessionInvite.tryParseWebLocation(Uri.base)));
+    return;
+  }
 
   final appLinks = AppLinks();
   StreamSubscription<Uri>? sub;
 
   Future<void> handleUri(Uri? uri) async {
     if (uri == null) return;
-    final invite = SessionInvite.tryParseUri(uri);
-    if (invite == null) return;
-    ref.read(pendingSessionInviteProvider.notifier).state = invite;
+    await applyInvite(
+      SessionInvite.tryParseWebLocation(uri) ?? SessionInvite.tryParseUri(uri),
+    );
   }
 
   unawaited(appLinks.getInitialLink().then(handleUri));

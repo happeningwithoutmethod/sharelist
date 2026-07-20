@@ -6,6 +6,7 @@ import {
   createEmptyHostState,
   type HostState,
 } from '../protocol/messages.js';
+import { isJoinCode, normalizeJoinCode, randomJoinCode } from './join-code.js';
 
 export type SessionStatus = 'active' | 'orphaned' | 'ended';
 
@@ -18,6 +19,8 @@ export interface ConnectorInfo {
 export interface Session {
   id: string;
   sessionToken: string;
+  /** Short public join code (6× A–Z0–9), unique among live sessions. */
+  joinCode: string;
   hostGoogleSub: string;
   /** ISO country code from the host device, or "unknown". */
   countryCode: string;
@@ -33,6 +36,8 @@ export type SessionEndReason = 'host_ended' | 'expired' | 'error';
 
 export class SessionStore {
   private sessions = new Map<string, Session>();
+  /** joinCode → sessionId */
+  private joinCodes = new Map<string, string>();
   private onSessionEnd?: (
     sessionId: string,
     reason: SessionEndReason,
@@ -45,15 +50,38 @@ export class SessionStore {
     this.onSessionEnd = callback;
   }
 
+  private allocateJoinCode(): string {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const code = randomJoinCode();
+      if (!this.joinCodes.has(code)) {
+        return code;
+      }
+    }
+    throw new Error('Could not allocate a unique join code');
+  }
+
+  private registerJoinCode(session: Session): void {
+    this.joinCodes.set(session.joinCode, session.id);
+  }
+
+  private unregisterJoinCode(session: Session): void {
+    const mapped = this.joinCodes.get(session.joinCode);
+    if (mapped === session.id) {
+      this.joinCodes.delete(session.joinCode);
+    }
+  }
+
   createSession(
     hostGoogleSub: string,
     sessionName?: string,
     countryCode = 'unknown',
   ): Session {
     const id = randomUUID();
+    const joinCode = this.allocateJoinCode();
     const session: Session = {
       id,
       sessionToken: randomUUID(),
+      joinCode,
       hostGoogleSub,
       countryCode: countryCode.trim() || 'unknown',
       status: 'active',
@@ -64,6 +92,7 @@ export class SessionStore {
       destroyTimer: null,
     };
     this.sessions.set(id, session);
+    this.registerJoinCode(session);
     return session;
   }
 
@@ -77,13 +106,20 @@ export class SessionStore {
     hostGoogleSub: string;
     countryCode?: string;
     stateSnapshot?: HostState;
+    joinCode?: string;
   }): Session {
     const existing = this.sessions.get(params.sessionId);
     if (existing) return existing;
 
+    let joinCode = params.joinCode ? normalizeJoinCode(params.joinCode) : '';
+    if (!isJoinCode(joinCode) || this.joinCodes.has(joinCode)) {
+      joinCode = this.allocateJoinCode();
+    }
+
     const session: Session = {
       id: params.sessionId,
       sessionToken: params.sessionToken,
+      joinCode,
       hostGoogleSub: params.hostGoogleSub,
       countryCode: (params.countryCode ?? 'unknown').trim() || 'unknown',
       status: 'active',
@@ -94,10 +130,19 @@ export class SessionStore {
       destroyTimer: null,
     };
     this.sessions.set(params.sessionId, session);
+    this.registerJoinCode(session);
     return session;
   }
 
   getSession(sessionId: string): Session | undefined {
+    return this.sessions.get(sessionId);
+  }
+
+  getSessionByJoinCode(code: string): Session | undefined {
+    const normalized = normalizeJoinCode(code);
+    if (!isJoinCode(normalized)) return undefined;
+    const sessionId = this.joinCodes.get(normalized);
+    if (!sessionId) return undefined;
     return this.sessions.get(sessionId);
   }
 
@@ -149,6 +194,7 @@ export class SessionStore {
     }
 
     this.onSessionEnd?.(sessionId, reason, session);
+    this.unregisterJoinCode(session);
     this.sessions.delete(sessionId);
   }
 

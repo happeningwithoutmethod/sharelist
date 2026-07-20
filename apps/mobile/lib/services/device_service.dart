@@ -34,6 +34,7 @@ class SessionPersistence {
   static const _sessionTokenKey = 'host_session_token';
   static const _serverUrlKey = 'host_server_url';
   static const _hostSubKey = 'host_google_sub';
+  static const _joinCodeKey = 'host_join_code';
   static const _savedConnectionsKey = 'saved_connections';
   static const _maxSavedConnections = 20;
   static const _activeConnectorInviteKey = 'active_connector_invite';
@@ -43,11 +44,17 @@ class SessionPersistence {
     required String sessionToken,
     required String serverUrl,
     required String hostGoogleSub,
+    String? joinCode,
   }) async {
     await _prefs.setString(_sessionIdKey, sessionId);
     await _prefs.setString(_sessionTokenKey, sessionToken);
     await _prefs.setString(_serverUrlKey, serverUrl);
     await _prefs.setString(_hostSubKey, hostGoogleSub);
+    if (joinCode != null && joinCode.isNotEmpty) {
+      await _prefs.setString(_joinCodeKey, joinCode.toUpperCase());
+    } else {
+      await _prefs.remove(_joinCodeKey);
+    }
   }
 
   Future<StoredHostSession?> loadHostSession() async {
@@ -66,6 +73,7 @@ class SessionPersistence {
       sessionToken: sessionToken,
       serverUrl: serverUrl,
       hostGoogleSub: hostSub,
+      joinCode: _prefs.getString(_joinCodeKey),
     );
   }
 
@@ -74,6 +82,7 @@ class SessionPersistence {
     await _prefs.remove(_sessionTokenKey);
     await _prefs.remove(_serverUrlKey);
     await _prefs.remove(_hostSubKey);
+    await _prefs.remove(_joinCodeKey);
   }
 
   Future<List<SavedConnection>> loadSavedConnections() async {
@@ -285,12 +294,14 @@ class StoredHostSession {
     required this.sessionToken,
     required this.serverUrl,
     required this.hostGoogleSub,
+    this.joinCode,
   });
 
   final String sessionId;
   final String sessionToken;
   final String serverUrl;
   final String hostGoogleSub;
+  final String? joinCode;
 }
 
 class SavedConnection {

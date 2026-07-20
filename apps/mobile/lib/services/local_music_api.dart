@@ -8,10 +8,6 @@ import 'package:shared_models/shared_models.dart';
 
 import '../config/server_config.dart';
 
-/// Prefer central relay search (holds the Data API key). Optional local key for
-/// offline/dev: `--dart-define=YOUTUBE_API_KEY=...`.
-final _localFallbackProvider = YouTubeMusicProvider();
-
 void _applyCors(HttpResponse response) {
   response.headers.set('Access-Control-Allow-Origin', '*');
   response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -28,27 +24,48 @@ Future<void> _writeJson(HttpRequest request, int status, Object body) async {
   await response.close();
 }
 
+Future<List<Track>> _searchViaUpstream(Uri upstream, String query) async {
+  final response = await http.get(upstream).timeout(const Duration(seconds: 15));
+  if (response.statusCode >= 400) {
+    var detail = response.body;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map && decoded['error'] is String) {
+        detail = decoded['error'] as String;
+      }
+    } catch (_) {}
+    throw HttpException(
+      'Upstream search failed (${response.statusCode}): $detail',
+      uri: upstream,
+    );
+  }
+  final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+  return (decoded['tracks'] as List<dynamic>? ?? [])
+      .map((item) => Track.fromJson(item as Map<String, dynamic>))
+      .toList();
+}
+
 Future<List<Track>> _searchTracks(String query) async {
   final upstream = Uri.parse(
     '${ServerConfig.joinOrigin}/api/music/search',
   ).replace(queryParameters: {'q': query});
 
   try {
-    final response = await http.get(upstream).timeout(const Duration(seconds: 15));
-    if (response.statusCode >= 400) {
-      throw HttpException(
-        'Upstream search failed (${response.statusCode}): ${response.body}',
-        uri: upstream,
-      );
-    }
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    return (decoded['tracks'] as List<dynamic>? ?? [])
-        .map((item) => Track.fromJson(item as Map<String, dynamic>))
-        .toList();
+    return await _searchViaUpstream(upstream, query);
   } catch (error) {
     debugPrint('[local-music-api] upstream search failed: $error');
-    // Dev/offline fallback when a local Data API key is configured.
-    return _localFallbackProvider.search(query);
+
+    // Optional offline/dev fallback only when a local Data API key is baked in.
+    const localKey = String.fromEnvironment('YOUTUBE_API_KEY', defaultValue: '');
+    if (localKey.isNotEmpty) {
+      return YouTubeMusicProvider(apiKey: localKey).search(query);
+    }
+
+    throw StateError(
+      'Song search needs the central relay ($upstream). '
+      'Ensure YOUTUBE_API_KEY is set on the server and the phone can reach it. '
+      'Original error: $error',
+    );
   }
 }
 

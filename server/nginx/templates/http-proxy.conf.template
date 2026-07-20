@@ -1,0 +1,50 @@
+# HTTP — ACME + reverse proxy (used before certificates exist)
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${RELAY_HOST};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Flutter web (JS) UI at /web/
+    location = /web {
+        return 301 /web/;
+    }
+
+    location /web/ {
+        proxy_pass http://share-list-web/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /web;
+    }
+
+    location = /app {
+        return 301 /web/;
+    }
+
+    location /app/ {
+        return 301 /web/;
+    }
+
+    # Relay API, WebSocket, landing, privacy, etc.
+    location / {
+        proxy_pass http://share-list:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}

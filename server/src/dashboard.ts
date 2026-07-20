@@ -427,69 +427,6 @@ function renderDashboardHtml(store: SessionStore, playLog: PlayLog): string {
 </html>`;
 }
 
-function renderJoinHtml(url: URL): string {
-  const sessionId =
-    url.searchParams.get('session') ??
-    url.searchParams.get('sessionId') ??
-    (url.pathname.startsWith('/join/')
-      ? decodeURIComponent(url.pathname.slice('/join/'.length).split('/')[0] ?? '')
-      : '');
-  const serverUrl =
-    url.searchParams.get('server') ?? url.searchParams.get('serverUrl') ?? '';
-
-  const appParams = new URLSearchParams();
-  if (sessionId) appParams.set('session', sessionId);
-  if (serverUrl) appParams.set('server', serverUrl);
-  const appLink = `sharelist://join?${appParams.toString()}`;
-  const safeSession = escapeHtml(sessionId || 'unknown');
-  const safeAppLink = escapeHtml(appLink);
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="0;url=${safeAppLink}" />
-  <title>Join Share List</title>
-  <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
-    body {
-      margin: 0; min-height: 100vh; display: grid; place-items: center;
-      background: #121218; color: #f4f4f8; padding: 24px;
-    }
-    main {
-      width: min(420px, 100%); background: #1c1c26; border-radius: 16px;
-      padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,.35);
-    }
-    h1 { margin: 0 0 8px; font-size: 1.4rem; }
-    p { margin: 0 0 16px; color: #b7b7c9; line-height: 1.45; }
-    code {
-      display: block; word-break: break-all; background: #0f0f16;
-      padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; font-size: .85rem;
-    }
-    a.button {
-      display: block; text-align: center; text-decoration: none;
-      background: #6c5ce7; color: white; font-weight: 600;
-      padding: 14px 16px; border-radius: 12px;
-    }
-    .hint { margin-top: 16px; font-size: .85rem; }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>Join Share List</h1>
-    <p>Opening the Share List app for session:</p>
-    <code>${safeSession}</code>
-    <a class="button" href="${safeAppLink}">Open in Share List</a>
-    <p class="hint">If nothing happens, install Share List and tap the button again.</p>
-  </main>
-  <script>
-    window.location.href = ${JSON.stringify(appLink)};
-  </script>
-</body>
-</html>`;
-}
-
 function requireRelayInfoAuth(
   req: IncomingMessage,
   res: ServerResponse,
@@ -566,15 +503,6 @@ export function handleDashboard(
       'Cache-Control': 'no-store',
     });
     res.end(JSON.stringify(body, null, 2));
-    return true;
-  }
-
-  if ((url.pathname === '/join' || url.pathname.startsWith('/join/')) && req.method === 'GET') {
-    res.writeHead(200, {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store',
-    });
-    res.end(renderJoinHtml(url));
     return true;
   }
 

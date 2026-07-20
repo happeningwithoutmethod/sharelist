@@ -16,11 +16,16 @@ class ConnectJoinScreen extends ConsumerStatefulWidget {
   ConsumerState<ConnectJoinScreen> createState() => _ConnectJoinScreenState();
 }
 
+enum _ConnectJoinMode { scan, code }
+
 class _ConnectJoinScreenState extends ConsumerState<ConnectJoinScreen> {
   final _nameController = TextEditingController();
+  final _codeController = TextEditingController();
+  var _mode = _ConnectJoinMode.scan;
   bool _scanning = false;
   bool _joining = false;
   String? _handledInviteKey;
+  String? _lastScannedRaw;
 
   @override
   void initState() {
@@ -37,6 +42,7 @@ class _ConnectJoinScreenState extends ConsumerState<ConnectJoinScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -109,121 +115,150 @@ class _ConnectJoinScreenState extends ConsumerState<ConnectJoinScreen> {
               ),
               const SizedBox(height: 16),
             ],
+            Center(
+              child: SegmentedButton<_ConnectJoinMode>(
+                segments: const [
+                  ButtonSegment<_ConnectJoinMode>(
+                    value: _ConnectJoinMode.scan,
+                    label: Text('Scan QR'),
+                    icon: Icon(Icons.qr_code_scanner),
+                  ),
+                  ButtonSegment<_ConnectJoinMode>(
+                    value: _ConnectJoinMode.code,
+                    label: Text('Enter code'),
+                    icon: Icon(Icons.pin),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (selected) {
+                  if (_joining) return;
+                  setState(() {
+                    _mode = selected.first;
+                    if (_mode == _ConnectJoinMode.code) {
+                      _scanning = false;
+                    }
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             Text(
-              'Scan the host QR code, or open a shared join link. Works with the central relay or local-mode hosts on the same Wi‑Fi.',
+              _mode == _ConnectJoinMode.scan
+                  ? 'Scan the App or Web QR on the host Session screen.'
+                  : 'Enter the 6-character code shown on the host (A–Z, 0–9).',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _joining
-                  ? null
-                  : () => setState(() => _scanning = !_scanning),
-              icon: const Icon(Icons.qr_code_scanner),
-              label: Text(_scanning ? 'Hide scanner' : 'Scan host QR code'),
-            ),
-            const SizedBox(height: 16),
-            if (_scanning)
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: MobileScanner(
-                    onDetect: (capture) {
-                      final raw = capture.barcodes.firstOrNull?.rawValue;
-                      if (raw != null) _handleQr(raw);
-                    },
-                  ),
+            if (_mode == _ConnectJoinMode.code) ...[
+              TextField(
+                controller: _codeController,
+                enabled: !_joining,
+                textCapitalization: TextCapitalization.characters,
+                maxLength: 6,
+                autofocus: true,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      letterSpacing: 6,
+                      fontWeight: FontWeight.w700,
+                    ),
+                decoration: const InputDecoration(
+                  labelText: 'Join code',
+                  hintText: 'ABC123',
+                  counterText: '',
                 ),
-              )
-            else
+                onChanged: (value) {
+                  final upper = value.toUpperCase().replaceAll(
+                        RegExp(r'[^A-Z0-9]'),
+                        '',
+                      );
+                  if (upper != value) {
+                    _codeController.value = TextEditingValue(
+                      text: upper,
+                      selection: TextSelection.collapsed(offset: upper.length),
+                    );
+                  }
+                },
+                onSubmitted: (_) => _joinViaCode(),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _joining ? null : _joinViaCode,
+                icon: const Icon(Icons.login),
+                label: const Text('Join with code'),
+              ),
+              const SizedBox(height: 16),
               Expanded(
                 child: savedConnections.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (_, _) => const Center(
-                    child: Text(
-                      'Scan the QR code shown on the host Session screen',
-                    ),
-                  ),
+                  error: (_, _) => const SizedBox.shrink(),
                   data: (connections) {
                     if (connections.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'Scan the QR code or open a shared join link',
-                          textAlign: TextAlign.center,
-                        ),
-                      );
+                      return const SizedBox.shrink();
                     }
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Recent sessions',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tap to reconnect · swipe to remove',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: connections.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final connection = connections[index];
-                              return Dismissible(
-                                key: ValueKey(
-                                  '${connection.serverUrl}|${connection.sessionId}',
-                                ),
-                                direction: DismissDirection.endToStart,
-                                background: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .errorContainer,
-                                  child: Icon(
-                                    Icons.delete_outline,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onErrorContainer,
-                                  ),
-                                ),
-                                onDismissed: (_) =>
-                                    _removeConnection(connection),
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: const Icon(Icons.history),
-                                  title: Text(connection.sessionName),
-                                  subtitle: Text(
-                                    '${_shortSessionId(connection.sessionId)}\n${connection.serverUrl}',
-                                  ),
-                                  isThreeLine: true,
-                                  trailing: const Icon(Icons.chevron_right),
-                                  onTap: _joining
-                                      ? null
-                                      : () => _joinSaved(connection),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                    return _RecentSessionsList(
+                      connections: connections,
+                      joining: _joining,
+                      shortSessionId: _shortSessionId,
+                      onRemove: _removeConnection,
+                      onJoin: _joinSaved,
                     );
                   },
                 ),
               ),
+            ] else ...[
+              FilledButton.icon(
+                onPressed: _joining
+                    ? null
+                    : () => setState(() => _scanning = !_scanning),
+                icon: const Icon(Icons.qr_code_scanner),
+                label: Text(_scanning ? 'Hide scanner' : 'Open camera scanner'),
+              ),
+              const SizedBox(height: 16),
+              if (_scanning)
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: MobileScanner(
+                      onDetect: (capture) {
+                        final raw = capture.barcodes.firstOrNull?.rawValue;
+                        if (raw != null) _handleQr(raw);
+                      },
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: savedConnections.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (_, _) => const Center(
+                      child: Text(
+                        'Scan the QR code shown on the host Session screen',
+                      ),
+                    ),
+                    data: (connections) {
+                      if (connections.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Open the scanner, or switch to Enter code',
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+                      return _RecentSessionsList(
+                        connections: connections,
+                        joining: _joining,
+                        shortSessionId: _shortSessionId,
+                        onRemove: _removeConnection,
+                        onJoin: _joinSaved,
+                      );
+                    },
+                  ),
+                ),
+            ],
             if (_joining) ...[
               const SizedBox(height: 8),
               const LinearProgressIndicator(),
@@ -339,10 +374,54 @@ class _ConnectJoinScreenState extends ConsumerState<ConnectJoinScreen> {
     }
   }
 
+  Future<void> _joinViaCode([String? rawCode]) async {
+    final code = SessionInvite.normalizeJoinCode(
+      rawCode ?? _codeController.text,
+    );
+    if (!SessionInvite.isJoinCode(code)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enter a 6-character code (A–Z, 0–9)'),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _joining = true);
+    try {
+      final invite = await SessionInvite.resolveJoinCode(code);
+      if (!mounted) return;
+      _codeController.text = code;
+      // _joinInvite also toggles _joining; clear first so its finally is correct.
+      setState(() => _joining = false);
+      await _joinInvite(invite, invitePayload: invite.webUri.toString());
+    } catch (error) {
+      if (mounted) {
+        setState(() => _joining = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not join: $error')),
+        );
+      }
+    }
+  }
+
   Future<void> _handleQr(String raw) async {
     if (_joining) return;
-    final invite = SessionInvite.tryParse(raw);
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty || trimmed == _lastScannedRaw) return;
+    _lastScannedRaw = trimmed;
+
+    final code = SessionInvite.tryParseJoinCode(trimmed);
+    if (code != null) {
+      await _joinViaCode(code);
+      return;
+    }
+
+    final invite = SessionInvite.tryParse(trimmed);
     if (invite == null) {
+      _lastScannedRaw = null;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invalid QR code')),
@@ -351,10 +430,83 @@ class _ConnectJoinScreenState extends ConsumerState<ConnectJoinScreen> {
       return;
     }
     // Persist the exact scanned payload so reconnect replays the same join.
-    await _joinInvite(invite, invitePayload: raw.trim());
+    await _joinInvite(invite, invitePayload: trimmed);
   }
 }
 
 extension _FirstOrNull<E> on List<E> {
   E? get firstOrNull => isEmpty ? null : first;
+}
+
+class _RecentSessionsList extends StatelessWidget {
+  const _RecentSessionsList({
+    required this.connections,
+    required this.joining,
+    required this.shortSessionId,
+    required this.onRemove,
+    required this.onJoin,
+  });
+
+  final List<SavedConnection> connections;
+  final bool joining;
+  final String Function(String) shortSessionId;
+  final Future<void> Function(SavedConnection) onRemove;
+  final Future<void> Function(SavedConnection) onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Recent sessions',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Tap to reconnect · swipe to remove',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            itemCount: connections.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final connection = connections[index];
+              return Dismissible(
+                key: ValueKey(
+                  '${connection.serverUrl}|${connection.sessionId}',
+                ),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                ),
+                onDismissed: (_) => onRemove(connection),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.history),
+                  title: Text(connection.sessionName),
+                  subtitle: Text(
+                    '${shortSessionId(connection.sessionId)}\n${connection.serverUrl}',
+                  ),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: joining ? null : () => onJoin(connection),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }

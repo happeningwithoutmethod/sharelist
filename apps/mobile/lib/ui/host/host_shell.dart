@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
+import '../../config/server_config.dart';
 import '../../services/device_service.dart';
 import '../../services/playback_service.dart';
 import '../../services/session_controller.dart';
@@ -315,78 +316,257 @@ class _PersistentYoutubeBar extends ConsumerWidget {
   }
 }
 
-class _HostSessionTab extends ConsumerWidget {
+class _HostSessionTab extends ConsumerStatefulWidget {
   const _HostSessionTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_HostSessionTab> createState() => _HostSessionTabState();
+}
+
+enum _JoinShareMode { app, web, code }
+
+class _HostSessionTabState extends ConsumerState<_HostSessionTab> {
+  var _mode = _JoinShareMode.app;
+  var _requestedJoinCode = false;
+
+  Future<void> _copy(BuildContext context, String label, String value) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$label copied')),
+    );
+  }
+
+  Future<void> _share(SessionInvite invite, {required bool web}) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: web ? invite.shareTextWeb : invite.shareTextApp,
+        subject: 'Join my Share List session',
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final host = ref.watch(hostSessionProvider);
     final sessionId = host.sessionId;
+    final joinCode = host.joinCode?.toUpperCase();
+    final hasCode = joinCode != null && SessionInvite.isJoinCode(joinCode);
     final invite = sessionId == null
         ? null
-        : SessionInvite(sessionId: sessionId, serverUrl: host.serverUrl);
-    final joinUrl = invite?.httpsUri.toString();
+        : SessionInvite(
+            sessionId: sessionId,
+            serverUrl: host.serverUrl,
+            joinCode: joinCode,
+          );
     final localMode = ref.watch(localModeProvider).valueOrNull ?? false;
+    final canShare = invite != null && host.connected;
+    // Web QR + short codes need the central relay (internet mode).
+    final internetJoins = !localMode;
+
+    if (internetJoins &&
+        host.connected &&
+        !hasCode &&
+        sessionId != null &&
+        !_requestedJoinCode) {
+      _requestedJoinCode = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(ref.read(hostSessionProvider.notifier).refreshJoinCode());
+      });
+    }
+    if (hasCode) {
+      _requestedJoinCode = false;
+    }
+
+    // Keep selection valid when internet joins are unavailable.
+    final mode = (!internetJoins && _mode != _JoinShareMode.app)
+        ? _JoinShareMode.app
+        : _mode;
+
+    final appUrl = invite?.httpsUri.toString();
+    final webUrl = invite?.webUri.toString();
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        if (joinUrl != null)
+        if (invite == null)
+          const Center(child: CircularProgressIndicator())
+        else ...[
           Center(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.white,
-              child: QrImageView(data: joinUrl, size: 220),
+            child: SegmentedButton<_JoinShareMode>(
+              segments: [
+                const ButtonSegment<_JoinShareMode>(
+                  value: _JoinShareMode.app,
+                  label: Text('App'),
+                  icon: Icon(Icons.smartphone),
+                ),
+                ButtonSegment<_JoinShareMode>(
+                  value: _JoinShareMode.web,
+                  label: const Text('Web'),
+                  icon: const Icon(Icons.language),
+                  enabled: internetJoins,
+                ),
+                ButtonSegment<_JoinShareMode>(
+                  value: _JoinShareMode.code,
+                  label: const Text('Code'),
+                  icon: const Icon(Icons.pin),
+                  enabled: internetJoins,
+                ),
+              ],
+              selected: {mode},
+              onSelectionChanged: (selected) {
+                setState(() => _mode = selected.first);
+              },
             ),
-          )
-        else
-          const Center(child: CircularProgressIndicator()),
-        const SizedBox(height: 24),
-        FilledButton.icon(
-          onPressed: invite == null || !host.connected
-              ? null
-              : () async {
-                  await SharePlus.instance.share(
-                    ShareParams(
-                      text: invite.shareText,
-                      subject: 'Join my Share List session',
-                    ),
-                  );
-                },
-          icon: const Icon(Icons.ios_share),
-          label: const Text('Share join link'),
-        ),
-        const SizedBox(height: 16),
-        Text('Join link', style: Theme.of(context).textTheme.labelLarge),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SelectableText(joinUrl ?? host.serverUrl),
-            ),
-            IconButton(
-              tooltip: 'Copy join link',
-              onPressed: joinUrl == null
-                  ? null
-                  : () async {
-                      await Clipboard.setData(ClipboardData(text: joinUrl));
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Join link copied')),
-                      );
-                    },
-              icon: const Icon(Icons.copy),
-            ),
-          ],
-        ),
-        if (localMode) ...[
-          const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 12),
           Text(
-            'Local mode — connectors must be on the same Wi‑Fi.',
+            switch (mode) {
+              _JoinShareMode.app =>
+                'Scan to join with the Share List app.',
+              _JoinShareMode.web => hasCode
+                  ? 'Scan to open ${ServerConfig.hostname}/join/$joinCode in a browser.'
+                  : 'Scan to open the web join link in a browser.',
+              _JoinShareMode.code => hasCode
+                  ? 'Share this 6-character code. Connectors enter it manually.'
+                  : 'Waiting for a join code from the relay…',
+            },
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
           ),
+          const SizedBox(height: 16),
+          if (mode == _JoinShareMode.code) ...[
+            if (hasCode) ...[
+              Center(
+                child: SelectableText(
+                  joinCode,
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        letterSpacing: 8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => _copy(context, 'Join code', joinCode),
+                icon: const Icon(Icons.copy),
+                label: const Text('Copy join code'),
+              ),
+              if (webUrl != null) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: canShare
+                      ? () => _share(invite, web: true)
+                      : null,
+                  icon: const Icon(Icons.ios_share),
+                  label: const Text('Share code + web link'),
+                ),
+              ],
+            ] else
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Waiting for a join code from the relay…',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        _requestedJoinCode = false;
+                        unawaited(
+                          ref
+                              .read(hostSessionProvider.notifier)
+                              .refreshJoinCode(),
+                        );
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+          ] else ...[
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.white,
+                child: QrImageView(
+                  key: ValueKey(
+                    mode == _JoinShareMode.web ? webUrl : appUrl,
+                  ),
+                  data: (mode == _JoinShareMode.web ? webUrl : appUrl)!,
+                  size: 220,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: canShare
+                  ? () => _share(invite, web: mode == _JoinShareMode.web)
+                  : null,
+              icon: Icon(
+                mode == _JoinShareMode.web
+                    ? Icons.language
+                    : Icons.ios_share,
+              ),
+              label: Text(
+                mode == _JoinShareMode.web
+                    ? 'Share web join link'
+                    : 'Share app join link',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SelectableText(
+                    (mode == _JoinShareMode.web ? webUrl : appUrl)!,
+                  ),
+                ),
+                IconButton(
+                  tooltip: mode == _JoinShareMode.web
+                      ? 'Copy web join link'
+                      : 'Copy app join link',
+                  onPressed: () => _copy(
+                    context,
+                    mode == _JoinShareMode.web
+                        ? 'Web join link'
+                        : 'App join link',
+                    (mode == _JoinShareMode.web ? webUrl : appUrl)!,
+                  ),
+                  icon: const Icon(Icons.copy),
+                ),
+              ],
+            ),
+          ],
+          if (localMode) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Local mode — connectors must be on the same Wi‑Fi. Web join codes need internet mode.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+          ] else if (!hasCode && host.connected) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Waiting for a join code from the relay…',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
         ],
         const SizedBox(height: 16),
         Text('Connectors: ${host.state.connectors.length}'),
@@ -402,6 +582,11 @@ class _HostSessionTab extends ConsumerWidget {
         const SizedBox(height: 8),
         Text('Session ID', style: Theme.of(context).textTheme.labelLarge),
         SelectableText(sessionId ?? 'Starting…'),
+        if (hasCode) ...[
+          const SizedBox(height: 8),
+          Text('Join code', style: Theme.of(context).textTheme.labelLarge),
+          SelectableText(joinCode),
+        ],
         const SizedBox(height: 24),
         FilledButton.tonalIcon(
           onPressed: host.connected

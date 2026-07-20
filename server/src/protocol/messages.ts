@@ -171,6 +171,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     payload: z.object({
       sessionId: z.string(),
       sessionToken: z.string(),
+      joinCode: z.string().optional(),
       serverUrl: z.string(),
     }),
   }),
@@ -181,6 +182,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
       state: hostStateSchema,
       /** True when the relay recreated the session (e.g. after a restart). */
       recreated: z.boolean().optional(),
+      joinCode: z.string().optional(),
+      serverUrl: z.string().optional(),
     }),
   }),
   z.object({

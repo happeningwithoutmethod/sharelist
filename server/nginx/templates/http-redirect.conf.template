@@ -1,0 +1,15 @@
+# HTTP — ACME + redirect to HTTPS (used after certificates exist)
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${RELAY_HOST};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

@@ -1,13 +1,15 @@
 name: share_list
 description: Collaborative music playlist app with host and connect modes.
 publish_to: 'none'
-version: 0.0.20+20
+version: 0.0.26+26
 
 environment:
-  sdk: ^3.12.2
+  sdk: ^3.12.0
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_web_plugins:
     sdk: flutter
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
@@ -32,6 +34,7 @@ dependencies:
   youtube_player_iframe: ^6.0.2
   webview_flutter: ^4.13.0
   google_fonts: ^8.2.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -40,8 +43,13 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.1
 
 flutter_launcher_icons:
-  android: "launcher_icon"  
-  image_path: "assets/icons/icon.png"  
+  android: "launcher_icon"
+  image_path: "assets/icons/icon.png"
+  web:
+    generate: true
+    image_path: "assets/icons/icon.png"
+    background_color: "#12123A"
+    theme_color: "#E91E8C"
 
 flutter:
   uses-material-design: true

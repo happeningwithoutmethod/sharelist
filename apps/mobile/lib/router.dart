@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,6 +17,17 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     refreshListenable: refresh,
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Page not found: ${state.uri}',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    ),
     redirect: (context, state) {
       final privacy = ref.read(privacyAcceptanceProvider);
       final accepted = privacy.valueOrNull;

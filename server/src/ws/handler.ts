@@ -102,6 +102,7 @@ export class WebSocketHandler {
       payload: {
         sessionId: session.id,
         sessionToken: session.sessionToken,
+        joinCode: session.joinCode,
         serverUrl: this.serverPublicUrl,
       },
     });
@@ -166,7 +167,12 @@ export class WebSocketHandler {
     this.send(socket, {
       type: 'host.reconnected',
       sessionId: session.id,
-      payload: { state: session.stateSnapshot, recreated },
+      payload: {
+        state: session.stateSnapshot,
+        recreated,
+        joinCode: session.joinCode,
+        serverUrl: this.serverPublicUrl,
+      },
     });
   }
 

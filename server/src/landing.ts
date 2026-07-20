@@ -180,19 +180,19 @@ export function renderLandingHtml(store: SessionStore, playLog: PlayLog): string
       animation: rise 0.7s ease both;
     }
     .logo {
-      width: min(168px, 42vw);
+      width: min(126px, 31.5vw);
       height: auto;
       border-radius: 28%;
       box-shadow:
-        18px 18px 0 rgba(0, 0, 0, 0.18),
-        0 20px 50px rgba(26, 26, 78, 0.45);
+        14px 14px 0 rgba(0, 0, 0, 0.18),
+        0 16px 40px rgba(26, 26, 78, 0.45);
       animation: floaty 4.5s ease-in-out infinite;
     }
     .brand {
       margin: 8px 0 0;
       font-family: Syne, Outfit, sans-serif;
       font-weight: 800;
-      font-size: clamp(2.4rem, 8vw, 4rem);
+      font-size: clamp(2rem, 6.5vw, 3.2rem);
       letter-spacing: -0.04em;
       line-height: 0.95;
       text-shadow: 0 8px 40px rgba(0, 0, 0, 0.35);
@@ -269,6 +269,30 @@ export function renderLandingHtml(store: SessionStore, playLog: PlayLog): string
       max-height: 640px;
       overflow: auto;
       border-top: 1px solid var(--line);
+      scrollbar-width: thin;
+      scrollbar-color: rgba(233, 30, 140, 0.7) rgba(12, 10, 36, 0.45);
+    }
+    .rank-list::-webkit-scrollbar {
+      width: 10px;
+    }
+    .rank-list::-webkit-scrollbar-track {
+      background: rgba(12, 10, 36, 0.45);
+      border-radius: 999px;
+      border: 1px solid var(--line);
+    }
+    .rank-list::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, var(--magenta), var(--purple));
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+    .rank-list::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #ff4db0, #9b4dff);
+      background-clip: padding-box;
+    }
+    .rank-list::-webkit-scrollbar-corner {
+      background: transparent;
     }
     .rank-row {
       display: grid;
@@ -398,7 +422,7 @@ export function renderLandingHtml(store: SessionStore, playLog: PlayLog): string
   <div class="noise" aria-hidden="true"></div>
   <main>
     <header class="hero">
-      <img class="logo" src="/public/logo.png" width="168" height="168" alt="Share List logo" />
+      <img class="logo" src="/public/logo.png" width="126" height="126" alt="Share List logo" />
       <h1 class="brand">Share List</h1>
       <p class="tag">Live collaborative playlists — what’s spinning right now across hosts.</p>
     </header>

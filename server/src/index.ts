@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { WebSocketServer } from 'ws';
 import { handleDashboard } from './dashboard.js';
+import { handleJoinRoutes } from './join.js';
 import { handleLanding } from './landing.js';
 import { handleMusicApi } from './music/youtube.js';
 import { PlayLog } from './play-log.js';
@@ -74,6 +75,10 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   if (handleLanding(req, res, url, store, playLog)) {
+    return;
+  }
+
+  if (handleJoinRoutes(req, res, url, store, PUBLIC_URL)) {
     return;
   }
 

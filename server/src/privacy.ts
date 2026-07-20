@@ -76,8 +76,7 @@ export function renderPrivacyHtml(): string {
   </style>
 </head>
 <body>
-  <main>
-    <a class="back" href="/">← Share List</a>
+  <main>    
     <article class="card">
       <h1>Privacy Policy</h1>
       <p class="meta">Share List · Version ${PRIVACY_POLICY_VERSION} · Last updated ${updated}</p>

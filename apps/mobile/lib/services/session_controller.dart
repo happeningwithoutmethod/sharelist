@@ -12,6 +12,7 @@ import 'host_country.dart';
 import 'local_relay_server.dart';
 import 'session_client.dart';
 import 'session_invite.dart';
+import '../config/server_config.dart';
 
 MusicProvider createMusicProvider(String serverUrl, {bool useRemoteSearch = false}) {
   // Prefer relay `/api/music/search` (YouTube Data API v3 + server-side key).
@@ -35,6 +36,7 @@ class HostSessionState {
   HostSessionState({
     this.sessionId,
     this.sessionToken,
+    this.joinCode,
     this.hostGoogleSub,
     String? serverUrl,
     this.connected = false,
@@ -57,6 +59,8 @@ class HostSessionState {
 
   final String? sessionId;
   final String? sessionToken;
+  /// Public 6-character join code from the central relay (internet mode).
+  final String? joinCode;
   final String? hostGoogleSub;
   final String serverUrl;
   final bool connected;
@@ -73,6 +77,7 @@ class HostSessionState {
   HostSessionState copyWith({
     String? sessionId,
     String? sessionToken,
+    String? joinCode,
     String? hostGoogleSub,
     String? serverUrl,
     bool? connected,
@@ -81,13 +86,18 @@ class HostSessionState {
     bool? isReconnecting,
     List<ConnectorInfo>? pendingConnections,
     bool clearError = false,
+    bool clearJoinCode = false,
+    bool clearCredentials = false,
   }) {
     return HostSessionState(
-      sessionId: sessionId ?? this.sessionId,
-      sessionToken: sessionToken ?? this.sessionToken,
+      sessionId: clearCredentials ? null : (sessionId ?? this.sessionId),
+      sessionToken: clearCredentials ? null : (sessionToken ?? this.sessionToken),
+      joinCode: (clearJoinCode || clearCredentials)
+          ? null
+          : (joinCode ?? this.joinCode),
       hostGoogleSub: hostGoogleSub ?? this.hostGoogleSub,
       serverUrl: serverUrl ?? this.serverUrl,
-      connected: connected ?? this.connected,
+      connected: clearCredentials ? false : (connected ?? this.connected),
       state: state ?? this.state,
       error: clearError ? null : (error ?? this.error),
       isReconnecting: isReconnecting ?? this.isReconnecting,
@@ -159,17 +169,18 @@ class HostSessionController extends StateNotifier<HostSessionState> {
       resolvedServerUrl = serverUrl ?? state.serverUrl;
     }
 
-    // Prefer loopback for the host music provider so search hits this device's relay.
+    // Local mode: WebSocket stays on-device, but song search must hit the central
+    // relay (holds YOUTUBE_API_KEY). Loopback has no API key of its own.
     _setMusicProviderForServer(
-      localMode
-          ? ref.read(localRelayServerProvider).loopbackUrl
-          : resolvedServerUrl,
+      localMode ? ServerConfig.joinOrigin : resolvedServerUrl,
       useRemoteSearch: true,
     );
     final persistence = await ref.read(sessionPersistenceProvider.future);
     final savedSettings = await persistence.loadHostSettings();
     state = state.copyWith(
       clearError: true,
+      clearCredentials: true,
+      clearJoinCode: true,
       isReconnecting: false,
       hostGoogleSub: user.id,
       serverUrl: localMode
@@ -216,6 +227,7 @@ class HostSessionController extends StateNotifier<HostSessionState> {
       sessionToken: stored.sessionToken,
       hostGoogleSub: stored.hostGoogleSub,
       serverUrl: stored.serverUrl,
+      joinCode: stored.joinCode,
     );
     await _connect(serverUrl: stored.serverUrl);
     await _ensureSessionOnServer(
@@ -449,9 +461,16 @@ class HostSessionController extends StateNotifier<HostSessionState> {
         final payload = message['payload'] as Map<String, dynamic>;
         final sessionId = payload['sessionId'] as String;
         final sessionToken = payload['sessionToken'] as String;
+        final joinCode = _readJoinCode(payload);
+        debugPrint(
+          'host.started session=$sessionId joinCode=${joinCode ?? '(none)'} '
+          'keys=${payload.keys.toList()}',
+        );
         state = state.copyWith(
           sessionId: sessionId,
           sessionToken: sessionToken,
+          joinCode: joinCode,
+          clearJoinCode: joinCode == null,
           connected: true,
           clearError: true,
         );
@@ -459,17 +478,35 @@ class HostSessionController extends StateNotifier<HostSessionState> {
         _broadcastState();
         _startReorderTimer();
         _startEnsureTimer();
+        if (joinCode == null) {
+          unawaited(refreshJoinCode());
+        }
+        break;
       case 'host.reconnected':
+        final reconnectPayload = message['payload'] as Map<String, dynamic>?;
+        final rejoinedCode =
+            reconnectPayload == null ? null : _readJoinCode(reconnectPayload);
+        debugPrint(
+          'host.reconnected joinCode=${rejoinedCode ?? '(none)'} '
+          'keys=${reconnectPayload?.keys.toList()}',
+        );
         state = state.copyWith(
           connected: true,
           isReconnecting: false,
+          joinCode: rejoinedCode,
           clearError: true,
         );
+        if (rejoinedCode != null) {
+          _persistSession();
+        } else {
+          unawaited(refreshJoinCode());
+        }
         _startReorderTimer();
         _startEnsureTimer();
         // Always push live state after reconnect/ensure — covers recreate and
         // keeps connectors in sync after a relay blip.
         _broadcastState();
+        break;
       case 'host.state':
         // Host is the source of truth — ignore echoed/state snapshots meant for
         // connectors so local playback metadata cannot be overwritten.
@@ -479,6 +516,7 @@ class HostSessionController extends StateNotifier<HostSessionState> {
             (message['payload'] as Map<String, dynamic>)['original']
                 as Map<String, dynamic>;
         _handleRelay(original);
+        break;
       case 'session.ended':
         if (_recoverInFlight || _endingSession) break;
         final reason =
@@ -490,6 +528,7 @@ class HostSessionController extends StateNotifier<HostSessionState> {
         } else {
           unawaited(_recoverHostSession(reason: 'session_ended_$reason'));
         }
+        break;
       case 'error':
         final payload = message['payload'] as Map<String, dynamic>;
         final code = payload['code'] as String?;
@@ -503,8 +542,63 @@ class HostSessionController extends StateNotifier<HostSessionState> {
         if (!_recoverInFlight) {
           state = state.copyWith(error: errorMessage);
         }
+        break;
       default:
         break;
+    }
+  }
+
+  static String? _readJoinCode(Map<String, dynamic> payload) {
+    final raw = payload['joinCode'] ?? payload['join_code'];
+    if (raw == null) return null;
+    final code = raw.toString().trim().toUpperCase();
+    if (code.isEmpty || !SessionInvite.isJoinCode(code)) return null;
+    return code;
+  }
+
+  /// Pull the join code from the relay over HTTP when the WS payload omitted it.
+  Future<void> refreshJoinCode() async {
+    final localMode = await ref.read(localModeProvider.future);
+    if (localMode) return;
+
+    final sessionId = state.sessionId;
+    final sessionToken = state.sessionToken;
+    if (sessionId == null || sessionToken == null) return;
+    if (state.joinCode != null && SessionInvite.isJoinCode(state.joinCode!)) {
+      return;
+    }
+
+    // Prefer the dialed relay; fall back to the advertised share URL / join origin.
+    final candidates = <String>{
+      ?_dialServerUrl,
+      state.serverUrl,
+      ServerConfig.url,
+      SessionInvite.normalizeServerUrl(ServerConfig.joinOrigin),
+    };
+
+    for (final serverUrl in candidates) {
+      try {
+        final code = await SessionInvite.fetchHostJoinCode(
+          sessionId: sessionId,
+          sessionToken: sessionToken,
+          serverUrl: serverUrl,
+        );
+        if (code == null) continue;
+        if (!mounted) return;
+        state = state.copyWith(joinCode: code);
+        await _persistSession();
+        debugPrint('refreshJoinCode recovered $code via $serverUrl');
+        return;
+      } catch (error) {
+        debugPrint('refreshJoinCode failed for $serverUrl: $error');
+      }
+    }
+
+    // Last resort: re-ensure so host.reconnected can deliver the code.
+    try {
+      await _ensureSessionOnServer(waitForAck: true);
+    } catch (error) {
+      debugPrint('refreshJoinCode ensure failed: $error');
     }
   }
 
@@ -718,6 +812,7 @@ class HostSessionController extends StateNotifier<HostSessionState> {
       sessionToken: state.sessionToken!,
       serverUrl: state.serverUrl,
       hostGoogleSub: hostId,
+      joinCode: state.joinCode,
     );
   }
 
@@ -725,6 +820,41 @@ class HostSessionController extends StateNotifier<HostSessionState> {
     final sessionId = state.sessionId;
     if (sessionId == null || _client == null) return;
     _client!.send(HostStateMessage(sessionId: sessionId, state: state.state).toJson());
+  }
+
+  DateTime? _lastPlaybackBroadcastAt;
+
+  void updatePlayback({
+    int? nowPlayingIndex,
+    bool? isPlaying,
+    int? positionMs,
+    int? durationMs,
+    bool broadcast = true,
+  }) {
+    final previous = state.state;
+    final next = previous.copyWith(
+      nowPlayingIndex: nowPlayingIndex,
+      isPlaying: isPlaying,
+      positionMs: positionMs,
+      durationMs: durationMs,
+    );
+    state = state.copyWith(state: next);
+    if (!broadcast) return;
+
+    final significant = nowPlayingIndex != null ||
+        isPlaying != null ||
+        previous.nowPlayingIndex != next.nowPlayingIndex ||
+        previous.isPlaying != next.isPlaying;
+    final now = DateTime.now();
+    final last = _lastPlaybackBroadcastAt;
+    // Throttle position-only ticks to ~1/s; always push play/track changes.
+    if (!significant &&
+        last != null &&
+        now.difference(last) < const Duration(milliseconds: 900)) {
+      return;
+    }
+    _lastPlaybackBroadcastAt = now;
+    _broadcastState();
   }
 
   void _updateState(HostState newState) {
@@ -897,26 +1027,6 @@ class HostSessionController extends StateNotifier<HostSessionState> {
     );
   }
 
-  void updatePlayback({
-    int? nowPlayingIndex,
-    bool? isPlaying,
-    int? positionMs,
-    int? durationMs,
-    bool broadcast = true,
-  }) {
-    state = state.copyWith(
-      state: state.state.copyWith(
-        nowPlayingIndex: nowPlayingIndex,
-        isPlaying: isPlaying,
-        positionMs: positionMs,
-        durationMs: durationMs,
-      ),
-    );
-    if (broadcast) {
-      _broadcastState();
-    }
-  }
-
   QrPayload get qrPayload => QrPayload(
         serverUrl: state.serverUrl,
         sessionId: state.sessionId ?? '',
@@ -1055,7 +1165,6 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
   late final VoidCallback _disconnectListener;
   bool _appearedInConnectorList = false;
   bool _suppressDisconnectHandling = false;
-  bool _reconnectInFlight = false;
   Completer<void>? _joinCompleter;
 
   MusicProvider get musicProvider => _musicProvider;
@@ -1075,6 +1184,7 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
       invitePayload: payload,
       displayName: displayName,
       deviceId: deviceId,
+      isReconnecting: false,
       clearError: true,
     );
 
@@ -1121,125 +1231,25 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
   }
 
   /// Called when the app returns to the foreground while in connect mode.
+  /// Connect mode does not auto-rejoin; a dead socket returns to the join screen.
   Future<void> handleAppResumed() async {
     if (state.forceReturnHome) return;
     if (state.sessionId == null && state.invitePayload == null) return;
-    if (_reconnectInFlight) return;
 
     final client = _client;
     if (client != null && client.isConnected) {
       final alive = await client.probe();
       if (alive && client.isHealthy) return;
-      debugPrint('Connect probe failed after resume — rejoining via invite');
     }
 
-    await _recoverConnection(reason: 'app_resumed');
+    await _markSessionLost('Connection to the session was lost');
   }
 
   void _onSocketDisconnected() {
     if (_suppressDisconnectHandling) return;
     if (state.forceReturnHome) return;
     if (state.sessionId == null && state.invitePayload == null) return;
-    if (_reconnectInFlight) return;
-    unawaited(_recoverConnection(reason: 'socket_closed'));
-  }
-
-  /// Reconnect by replaying the same invite join used after scanning the QR.
-  Future<void> _recoverConnection({required String reason}) async {
-    if (_reconnectInFlight || _suppressDisconnectHandling || state.forceReturnHome) {
-      return;
-    }
-
-    _reconnectInFlight = true;
-    state = state.copyWith(
-      connected: false,
-      isReconnecting: true,
-      clearError: true,
-    );
-    debugPrint('Connect rejoining via saved invite ($reason)');
-
-    Object? lastError;
-    try {
-      for (var attempt = 1; attempt <= 8; attempt++) {
-        if (state.forceReturnHome) return;
-
-        final active = await _resolveActiveInvite();
-        if (active == null) {
-          lastError = StateError('No saved invite to rejoin');
-          break;
-        }
-        final invite = active.invite;
-        if (invite == null) {
-          lastError = StateError('Saved invite is invalid');
-          break;
-        }
-
-        try {
-          await joinFromInvite(
-            invite: invite,
-            displayName: active.displayName,
-            deviceId: active.deviceId,
-            invitePayload: active.invitePayload,
-            preserveVotes: true,
-          );
-          if (state.forceReturnHome) return;
-          state = state.copyWith(
-            connected: true,
-            isReconnecting: false,
-            clearError: true,
-          );
-          debugPrint('Connect rejoined on attempt $attempt');
-          return;
-        } catch (error) {
-          if (state.forceReturnHome) return;
-          lastError = error;
-          debugPrint('Connect rejoin attempt $attempt failed: $error');
-          final message = error.toString().toLowerCase();
-          final hostGone = message.contains('no longer available') ||
-              message.contains('session not found') ||
-              message.contains('session has ended') ||
-              message.contains('host ended');
-          if (hostGone && attempt >= 3) break;
-          await Future<void>.delayed(Duration(milliseconds: 700 * attempt));
-        }
-      }
-
-      if (!state.forceReturnHome) {
-        await _markSessionLost(
-          lastError?.toString() ?? 'Host is no longer available',
-        );
-      }
-    } finally {
-      _reconnectInFlight = false;
-      if (mounted && !state.forceReturnHome) {
-        state = state.copyWith(isReconnecting: false);
-      }
-    }
-  }
-
-  Future<ActiveConnectorInvite?> _resolveActiveInvite() async {
-    final payload = state.invitePayload;
-    final displayName = state.displayName;
-    final deviceId = state.deviceId;
-    if (payload != null &&
-        payload.isNotEmpty &&
-        displayName != null &&
-        displayName.isNotEmpty &&
-        deviceId != null &&
-        deviceId.isNotEmpty) {
-      return ActiveConnectorInvite(
-        invitePayload: payload,
-        displayName: displayName,
-        deviceId: deviceId,
-      );
-    }
-
-    try {
-      final persistence = await ref.read(sessionPersistenceProvider.future);
-      return persistence.loadActiveConnectorInvite();
-    } catch (_) {
-      return null;
-    }
+    unawaited(_markSessionLost('Connection to the session was lost'));
   }
 
   Future<void> _attachAndJoin({
@@ -1300,7 +1310,7 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
         await join.future.timeout(const Duration(seconds: 12));
       } on TimeoutException {
         _joinCompleter = null;
-        throw StateError('Timed out rejoining the host session');
+        throw StateError('Timed out joining the host session');
       } finally {
         if (identical(_joinCompleter, join)) {
           _joinCompleter = null;
@@ -1325,7 +1335,7 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
 
   Future<void> _markSessionLost(String message) async {
     _suppressDisconnectHandling = true;
-    // Flip this first so UI exits reconnecting and recover loops stop.
+    // Flip this first so ConnectShell navigates back to the join screen.
     if (mounted) {
       state = state.copyWith(
         forceReturnHome: true,
@@ -1347,7 +1357,6 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
       _client = null;
     }
     _appearedInConnectorList = false;
-    _reconnectInFlight = false;
     unawaited(_clearActiveInvite());
   }
 
@@ -1398,7 +1407,7 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
         final errorMessage =
             payload['message'] as String? ?? 'Connection error';
         _completeJoin(StateError(errorMessage));
-        if (!_reconnectInFlight) {
+        if (!state.forceReturnHome) {
           state = state.copyWith(error: errorMessage);
         }
       default:
@@ -1436,7 +1445,6 @@ class ConnectSessionController extends StateNotifier<ConnectSessionState> {
     await _client?.disconnect();
     _client = null;
     _appearedInConnectorList = false;
-    _reconnectInFlight = false;
     await _clearActiveInvite();
     state = ConnectSessionState();
     _suppressDisconnectHandling = false;

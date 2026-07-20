@@ -1,0 +1,36 @@
+# Flutter web static build for Share List
+# Build from repo root:
+#   docker compose -f server/docker-compose.yml build share-list-web
+
+FROM ghcr.io/cirruslabs/flutter:stable AS build
+
+WORKDIR /src
+
+# Copy pub workspaces first for better layer caching.
+COPY packages/shared_models /src/packages/shared_models
+COPY packages/music_providers /src/packages/music_providers
+COPY apps/mobile/pubspec.yaml apps/mobile/pubspec.lock /src/apps/mobile/
+WORKDIR /src/apps/mobile
+RUN flutter pub get
+
+COPY apps/mobile /src/apps/mobile
+
+ARG SERVER_URL=wss://sharelist.servehttp.com
+ARG SERVER_HOSTNAME=sharelist.servehttp.com
+ARG JOIN_ORIGIN=https://sharelist.servehttp.com
+ARG BASE_HREF=/web/
+
+RUN flutter build web --release --base-href=${BASE_HREF} \
+  --dart-define=SERVER_URL=${SERVER_URL} \
+  --dart-define=SERVER_HOSTNAME=${SERVER_HOSTNAME} \
+  --dart-define=JOIN_ORIGIN=${JOIN_ORIGIN}
+
+FROM nginx:1.27-alpine AS runtime
+
+COPY apps/mobile/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /src/apps/mobile/build/web /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1

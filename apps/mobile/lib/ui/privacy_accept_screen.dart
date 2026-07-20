@@ -1,10 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-import '../../services/app_permissions.dart';
-import '../../services/privacy_service.dart';
+import '../services/app_permissions.dart';
+import '../services/privacy_service.dart';
+import 'open_external_url.dart';
 
 /// First-run gate: user must accept the published privacy policy.
 class PrivacyAcceptScreen extends ConsumerStatefulWidget {
@@ -16,7 +18,7 @@ class PrivacyAcceptScreen extends ConsumerStatefulWidget {
 }
 
 class _PrivacyAcceptScreenState extends ConsumerState<PrivacyAcceptScreen> {
-  late final WebViewController _controller;
+  WebViewController? _controller;
   var _loading = true;
   var _loadFailed = false;
   var _accepting = false;
@@ -24,7 +26,13 @@ class _PrivacyAcceptScreenState extends ConsumerState<PrivacyAcceptScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
+    // webview_flutter has no web implementation — creating a controller throws.
+    if (kIsWeb) {
+      _loading = false;
+      _loadFailed = true;
+      return;
+    }
+    final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.disabled)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -50,6 +58,7 @@ class _PrivacyAcceptScreenState extends ConsumerState<PrivacyAcceptScreen> {
         ),
       )
       ..loadRequest(Uri.parse(privacyPolicyUrl()));
+    _controller = controller;
   }
 
   Future<void> _accept() async {
@@ -67,6 +76,7 @@ class _PrivacyAcceptScreenState extends ConsumerState<PrivacyAcceptScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final controller = _controller;
 
     return Scaffold(
       appBar: AppBar(
@@ -92,18 +102,22 @@ class _PrivacyAcceptScreenState extends ConsumerState<PrivacyAcceptScreen> {
           Expanded(
             child: Stack(
               children: [
-                if (_loadFailed)
+                if (_loadFailed || controller == null)
                   _OfflinePrivacyFallback(
-                    onRetry: () {
-                      setState(() {
-                        _loading = true;
-                        _loadFailed = false;
-                      });
-                      _controller.loadRequest(Uri.parse(privacyPolicyUrl()));
-                    },
+                    onRetry: controller == null
+                        ? null
+                        : () {
+                            setState(() {
+                              _loading = true;
+                              _loadFailed = false;
+                            });
+                            controller.loadRequest(
+                              Uri.parse(privacyPolicyUrl()),
+                            );
+                          },
                   )
                 else
-                  WebViewWidget(controller: _controller),
+                  WebViewWidget(controller: controller),
                 if (_loading && !_loadFailed)
                   const Center(child: CircularProgressIndicator()),
               ],
@@ -145,9 +159,9 @@ class _PrivacyAcceptScreenState extends ConsumerState<PrivacyAcceptScreen> {
 }
 
 class _OfflinePrivacyFallback extends StatelessWidget {
-  const _OfflinePrivacyFallback({required this.onRetry});
+  const _OfflinePrivacyFallback({this.onRetry});
 
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -155,21 +169,34 @@ class _OfflinePrivacyFallback extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       children: [
         Text(
-          'Could not load the online policy',
+          kIsWeb
+              ? 'Review the privacy policy'
+              : 'Could not load the online policy',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
         Text(
-          'Check your connection and retry, or open ${privacyPolicyUrl()} '
-          'in a browser. A short summary is shown below so you can still accept.',
+          kIsWeb
+              ? 'Open the full policy in a new tab, or read the summary below and accept to continue.'
+              : 'Check your connection and retry, or open ${privacyPolicyUrl()} '
+                  'in a browser. A short summary is shown below so you can still accept.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Retry'),
-        ),
+        if (kIsWeb)
+          OutlinedButton.icon(
+            onPressed: () => openExternalUrl(privacyPolicyUrl()),
+            icon: const Icon(Icons.open_in_new),
+            label: const Text('Open full policy'),
+          ),
+        if (onRetry != null) ...[
+          if (kIsWeb) const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ],
         const SizedBox(height: 24),
         Text('Summary', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),

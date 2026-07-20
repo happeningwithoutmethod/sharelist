@@ -11,7 +11,7 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: 3000
-      # TLS is terminated by Caddy (Let's Encrypt). App serves plain HTTP internally.
+      # TLS is terminated by nginx. App serves plain HTTP internally.
       ENABLE_HTTP: "true"
       ENABLE_HTTPS: "false"
       PLAY_LOG_PATH: /app/data/play-log.json
@@ -34,31 +34,96 @@ services:
     networks:
       - share-list
 
-  caddy:
-    image: caddy:2.10-alpine
-    container_name: share-list-caddy
+  share-list-web:
+    build:
+      context: ..
+      dockerfile: apps/mobile/Dockerfile.web
+      args:
+        SERVER_URL: ${PUBLIC_URL:-wss://sharelist.servehttp.com}
+        SERVER_HOSTNAME: ${HOSTNAME:-sharelist.servehttp.com}
+        JOIN_ORIGIN: ${PUBLIC_HTTPS_URL:-https://sharelist.servehttp.com}
+    image: share-list-web:latest
+    container_name: share-list-web
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - share-list
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: share-list-nginx:latest
+    container_name: share-list-nginx
     restart: unless-stopped
     depends_on:
       share-list:
         condition: service_healthy
+      share-list-web:
+        condition: service_started
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp"
     environment:
       HOSTNAME: ${HOSTNAME:-sharelist.servehttp.com}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in server/.env}
+      CERT_NAME: ${HOSTNAME:-sharelist.servehttp.com}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    networks:
+      - share-list
+
+  # One-shot: docker compose --profile certs run --rm certbot-init
+  certbot-init:
+    image: certbot/certbot:v4.0.0
+    profiles: ["certs"]
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in server/.env}
+      HOSTNAME: ${HOSTNAME:-sharelist.servehttp.com}
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        certbot certonly --webroot -w /var/www/certbot --non-interactive --agree-tos \
+          --email "$$ACME_EMAIL" \
+          -d "$$HOSTNAME"
+    networks:
+      - share-list
+
+  # Renew twice daily; nginx reloads when certs change via certbot deploy hook optional
+  certbot-renew:
+    image: certbot/certbot:v4.0.0
+    container_name: share-list-certbot-renew
+    restart: unless-stopped
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        trap exit TERM
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet || true
+          sleep 12h
+        done
     networks:
       - share-list
 
 volumes:
   share-list-data:
-  caddy-data:
-  caddy-config:
+  certbot-www:
+  certbot-certs:
 
 networks:
   share-list:

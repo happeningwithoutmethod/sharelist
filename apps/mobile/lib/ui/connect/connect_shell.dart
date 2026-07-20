@@ -20,7 +20,7 @@ class ConnectShell extends ConsumerStatefulWidget {
 class _ConnectShellState extends ConsumerState<ConnectShell>
     with WidgetsBindingObserver {
   int _index = 0;
-  bool _navigatingHome = false;
+  bool _navigatingAway = false;
 
   @override
   void initState() {
@@ -41,22 +41,38 @@ class _ConnectShellState extends ConsumerState<ConnectShell>
     }
   }
 
-  Future<void> _goHome() async {
-    if (_navigatingHome || !mounted) return;
-    _navigatingHome = true;
+  Future<void> _leaveTo({
+    required String location,
+    String? message,
+  }) async {
+    if (_navigatingAway || !mounted) return;
+    _navigatingAway = true;
+    final snackMessage = message ?? ref.read(connectSessionProvider).error;
     try {
       await ref.read(connectSessionProvider.notifier).leaveSession();
     } finally {
-      if (mounted) context.go('/');
+      if (mounted) {
+        context.go(location);
+        if (snackMessage != null && snackMessage.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(snackMessage)),
+          );
+        }
+      }
     }
   }
+
+  Future<void> _returnToConnectJoin({String? message}) =>
+      _leaveTo(location: '/connect', message: message);
+
+  Future<void> _leaveToHome() => _leaveTo(location: '/');
 
   @override
   Widget build(BuildContext context) {
     ref.listen<ConnectSessionState>(connectSessionProvider, (previous, next) {
       if (next.forceReturnHome) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _goHome();
+          _returnToConnectJoin(message: next.error);
         });
       }
     });
@@ -66,22 +82,6 @@ class _ConnectShellState extends ConsumerState<ConnectShell>
     if (connect.forceReturnHome) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (connect.isReconnecting) {
-      return Scaffold(
-        appBar: AppBar(title: Text(connect.state.sessionName)),
-        body: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Reconnecting to host…'),
-            ],
-          ),
-        ),
       );
     }
 
@@ -95,8 +95,8 @@ class _ConnectShellState extends ConsumerState<ConnectShell>
               Text(connect.error!),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: _goHome,
-                child: const Text('Back to home'),
+                onPressed: () => _returnToConnectJoin(message: connect.error),
+                child: const Text('Back to connect'),
               ),
             ],
           ),
@@ -125,7 +125,7 @@ class _ConnectShellState extends ConsumerState<ConnectShell>
         ),
         actions: [
           IconButton(
-            onPressed: _goHome,
+            onPressed: _leaveToHome,
             icon: const Icon(Icons.logout),
           ),
         ],

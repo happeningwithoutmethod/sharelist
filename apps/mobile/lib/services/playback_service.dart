@@ -145,12 +145,13 @@ class PlaybackController extends StateNotifier<AsyncValue<void>> {
       try {
         final seconds = await youtubeController.currentTime;
         final duration = await youtubeController.duration;
+        // Broadcast so connectors (including web) stay in sync while music plays.
         ref.read(hostSessionProvider.notifier).updatePlayback(
               positionMs: (seconds * 1000).round(),
               durationMs: (duration * 1000).round(),
-              broadcast: false,
+              broadcast: true,
             );
-        _syncNowPlayingToEngine(broadcast: false);
+        _syncNowPlayingToEngine(broadcast: true);
       } catch (_) {}
     });
   }
