@@ -1,4 +1,4 @@
-# HTTPS — React /web/ + Flutter /app/ + relay /
+# HTTPS — React /web/ + Flutter /app/ + APK /apk + relay /
 
 server {
     listen 443 ssl;
@@ -38,6 +38,18 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Prefix /app;
+    }
+
+    # Latest Flutter Android APK (bind-mounted from ./public/apk on the host)
+    location = /apk {
+        alias /var/www/apk/sharelist-latest.apk;
+        default_type application/vnd.android.package-archive;
+        add_header Content-Disposition 'attachment; filename="sharelist-latest.apk"';
+        add_header Cache-Control 'no-cache';
+    }
+
+    location = /apk/ {
+        return 301 /apk;
     }
 
     location / {

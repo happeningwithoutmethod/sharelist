@@ -7,6 +7,7 @@ nginx terminates TLS on ports **80** / **443** for one hostname:
 | `https://sharelist.servehttp.com/` | Relay API + WebSocket + landing (`share-list:3000`) |
 | `https://sharelist.servehttp.com/web/` | React web client (`share-list-client:80`) |
 | `https://sharelist.servehttp.com/app/` | Flutter web client (`share-list-web:80`) |
+| `https://sharelist.servehttp.com/apk` | Latest Android APK (`./public/apk/sharelist-latest.apk`) |
 | `https://sharelist.servehttp.com/join/…` | Join bridge / short codes (`share-list:3000`) |
 
 ```
@@ -16,6 +17,7 @@ Internet
    └─ :443 ──► nginx (Let's Encrypt TLS)
                   ├─ /web/  → share-list-client
                   ├─ /app/  → share-list-web
+                  ├─ /apk   → ./public/apk/sharelist-latest.apk
                   └─ /      → share-list:3000
 ```
 
@@ -78,6 +80,7 @@ https://sharelist.servehttp.com/          → relay landing / API
 wss://sharelist.servehttp.com/session     → WebSocket
 https://sharelist.servehttp.com/web/      → React web app
 https://sharelist.servehttp.com/app/      → Flutter web app
+https://sharelist.servehttp.com/apk       → Android APK download
 https://sharelist.servehttp.com/join/ABC123 → join bridge
 ```
 
@@ -85,7 +88,21 @@ https://sharelist.servehttp.com/join/ABC123 → join bridge
 curl -I https://sharelist.servehttp.com/health
 curl -I https://sharelist.servehttp.com/web/
 curl -I https://sharelist.servehttp.com/app/
+curl -I https://sharelist.servehttp.com/apk
 ```
+
+## Android APK
+
+Copy the release build onto the host (next to Compose):
+
+```bash
+# From the machine that built the APK:
+scp build/app/outputs/flutter-apk/app-release.apk \
+  user@server:/path/to/share-list/server/public/apk/sharelist-latest.apk
+```
+
+No container rebuild needed — nginx reads `./public/apk/sharelist-latest.apk` live.
+Then open https://sharelist.servehttp.com/apk
 
 ## Flutter web
 
