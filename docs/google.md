@@ -25,10 +25,16 @@ Your app uses `google_sign_in` with scopes `email` and `profile`. Package IDs:
 
 Go to **APIs & Services → Credentials → Create credentials → OAuth client ID**.
 
-### A. Web client (required for Android)
+### A. Web client (required for Flutter web + recommended for Android)
 
-Create type **Web application**.  
-You mainly need its **Client ID** — Android’s `google_sign_in` uses this as `serverClientId` in many setups, and it’s also useful if you later need ID tokens.
+Create type **Web application**.
+
+**Authorized JavaScript origins** (for browser / Flutter web sign-in):
+
+- `https://sharelist.servehttp.com`
+- `http://localhost` (and any `http://localhost:PORT` you use with `flutter run -d chrome`)
+
+**Authorized redirect URIs** can stay empty for the GIS popup flow used by `google_sign_in` on web.
 
 Copy the **Web client ID** (looks like `xxxxx.apps.googleusercontent.com`).
 
@@ -63,6 +69,26 @@ Create a **separate** Android client later for release with your release keystor
 
 ## 3. Wire it into the Flutter app
 
+### Web (Flutter web / “JS” build)
+
+Pass the **Web client ID** at build or run time:
+
+```powershell
+flutter run -d chrome --dart-define=GOOGLE_WEB_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
+```
+
+Or when building the optional Docker web image:
+
+```bash
+docker build -f apps/mobile/Dockerfile.web \
+  --build-arg GOOGLE_WEB_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com \
+  -t share-list-web .
+```
+
+Without this, web sign-in fails with a cryptic null-check (`Null check operator used on a null value`).
+
+Also ensure the Cloud Console Web client lists your site under **Authorized JavaScript origins**.
+
 ### Android
 
 Usually **no** `google-services.json` is required for basic `google_sign_in` if the OAuth Android client matches package + SHA-1.
@@ -73,16 +99,7 @@ If sign-in still fails with `ApiException: 10` (DEVELOPER_ERROR), double-check:
 - SHA-1 matches the keystore you actually run with (`flutter run` = debug)
 - You’re using the same Google Cloud project as the consent screen
 
-Optional but recommended: pass the **Web client ID** in Dart:
-
-```dart
-GoogleSignIn(
-  scopes: ['email', 'profile'],
-  serverClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
-);
-```
-
-That’s in [`auth_service.dart`](apps/mobile/lib/services/auth_service.dart).
+Optional but recommended: pass the same **Web client ID** (done automatically when `GOOGLE_WEB_CLIENT_ID` is set) — see [`auth_service.dart`](apps/mobile/lib/services/auth_service.dart).
 
 ### iOS
 
@@ -130,9 +147,10 @@ flutter run
 |----------------------|----------------|
 | Android emulator / device | Supported (main path) |
 | iOS simulator / device | Supported after iOS client + URL scheme |
+| Flutter web (Chrome) | Supported with Web OAuth client + `GOOGLE_WEB_CLIENT_ID` |
 | Windows desktop (`flutter run -d windows`) | **Not supported** by `google_sign_in` the same way |
 
-If you’re testing on **Windows**, Host Mode will open the start screen, but Sign in with Google will fail. Use an Android emulator or a phone.
+If you’re testing on **Windows desktop**, Host Mode will open the start screen, but Sign in with Google will fail. Use Android, iOS, or Flutter web.
 
 ---
 
@@ -140,8 +158,9 @@ If you’re testing on **Windows**, Host Mode will open the start screen, but Si
 
 1. Consent screen published or your account is a **Test user**
 2. Android OAuth client: package `com.happeningwithoutmethod.sharelist` + correct SHA-1
-3. App reinstalled after credential changes (`flutter run` again)
-4. Tap **Host Mode → Sign in with Google** → account picker appears
+3. Web OAuth client: JS origins include your host (and localhost for dev)
+4. App rebuilt after credential / dart-define changes
+5. Tap **Host Mode → Sign in with Google** → account picker appears
 
 ---
 
@@ -149,10 +168,12 @@ If you’re testing on **Windows**, Host Mode will open the start screen, but Si
 
 | Error | Cause |
 |-------|--------|
+| `Null check operator used on a null value` (web) | Missing `GOOGLE_WEB_CLIENT_ID` / Web client ID |
 | `ApiException: 10` | Wrong package name or SHA-1 |
 | `ApiException: 12500` | Misconfigured OAuth / Play Services |
 | Sign-in cancelled immediately | Consent screen / test user missing |
 | Works on one machine, not another | Different debug keystore SHA-1 — add that SHA-1 too |
+| GIS / origin errors in browser console | Web client missing this site’s JavaScript origin |
 
 ---
 
@@ -163,7 +184,3 @@ Current code only requests `email` and `profile` and stores the Google **access 
 For Host Mode today, Google login mainly identifies the host for session create/reconnect. Access tokens are not used for playback or search.
 
 Song search uses **YouTube Data API v3** on the relay (`YOUTUBE_API_KEY`). See `docs/youtube_data_api.md`.
-
----
-
-If you tell me whether you’re on **Android emulator**, **physical phone**, or **Windows desktop**, I can narrow this to the exact next clicks for your case. To have the project files updated for you (URL scheme, `serverClientId`, etc.), switch to **Agent mode**.

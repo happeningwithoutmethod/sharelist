@@ -425,8 +425,8 @@ class _HostSessionTabState extends ConsumerState<_HostSessionTab> {
               _JoinShareMode.app =>
                 'Scan to join with the Share List app.',
               _JoinShareMode.web => hasCode
-                  ? 'Scan to open ${ServerConfig.hostname}/join/$joinCode in a browser.'
-                  : 'Scan to open the web join link in a browser.',
+                  ? 'Scan to open ${ServerConfig.hostname}/join/$joinCode (app join page).'
+                  : 'Scan to open the short join link.',
               _JoinShareMode.code => hasCode
                   ? 'Share this 6-character code. Connectors enter it manually.'
                   : 'Waiting for a join code from the relay…',
@@ -521,7 +521,7 @@ class _HostSessionTabState extends ConsumerState<_HostSessionTab> {
               ),
               label: Text(
                 mode == _JoinShareMode.web
-                    ? 'Share web join link'
+                    ? 'Share join link'
                     : 'Share app join link',
               ),
             ),
@@ -536,12 +536,12 @@ class _HostSessionTabState extends ConsumerState<_HostSessionTab> {
                 ),
                 IconButton(
                   tooltip: mode == _JoinShareMode.web
-                      ? 'Copy web join link'
+                      ? 'Copy join link'
                       : 'Copy app join link',
                   onPressed: () => _copy(
                     context,
                     mode == _JoinShareMode.web
-                        ? 'Web join link'
+                        ? 'Join link'
                         : 'App join link',
                     (mode == _JoinShareMode.web ? webUrl : appUrl)!,
                   ),

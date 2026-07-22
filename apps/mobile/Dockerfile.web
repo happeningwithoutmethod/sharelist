@@ -1,6 +1,6 @@
-# Flutter web static build for Share List
-# Build from repo root:
-#   docker compose -f server/docker-compose.yml build share-list-web
+# Optional Flutter web static build (not part of server docker compose).
+# From repo root:
+#   docker build -f apps/mobile/Dockerfile.web -t share-list-web .
 
 FROM ghcr.io/cirruslabs/flutter:stable AS build
 
@@ -18,12 +18,14 @@ COPY apps/mobile /src/apps/mobile
 ARG SERVER_URL=wss://sharelist.servehttp.com
 ARG SERVER_HOSTNAME=sharelist.servehttp.com
 ARG JOIN_ORIGIN=https://sharelist.servehttp.com
+ARG GOOGLE_WEB_CLIENT_ID=
 ARG BASE_HREF=/web/
 
 RUN flutter build web --release --base-href=${BASE_HREF} \
   --dart-define=SERVER_URL=${SERVER_URL} \
   --dart-define=SERVER_HOSTNAME=${SERVER_HOSTNAME} \
-  --dart-define=JOIN_ORIGIN=${JOIN_ORIGIN}
+  --dart-define=JOIN_ORIGIN=${JOIN_ORIGIN} \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID}
 
 FROM nginx:1.27-alpine AS runtime
 

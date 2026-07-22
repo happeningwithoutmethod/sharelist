@@ -34,28 +34,8 @@ services:
     networks:
       - share-list
 
-  share-list-web:
-    build:
-      context: ..
-      dockerfile: apps/mobile/Dockerfile.web
-      args:
-        SERVER_URL: ${PUBLIC_URL:-wss://sharelist.servehttp.com}
-        SERVER_HOSTNAME: ${HOSTNAME:-sharelist.servehttp.com}
-        JOIN_ORIGIN: ${PUBLIC_HTTPS_URL:-https://sharelist.servehttp.com}
-    image: share-list-web:latest
-    container_name: share-list-web
-    restart: unless-stopped
-    expose:
-      - "80"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    networks:
-      - share-list
-
+  # Flutter web (apps/mobile) is not deployed. Build locally if needed:
+  #   docker build -f apps/mobile/Dockerfile.web -t share-list-web ..
   nginx:
     build:
       context: ./nginx
@@ -66,8 +46,6 @@ services:
     depends_on:
       share-list:
         condition: service_healthy
-      share-list-web:
-        condition: service_started
     ports:
       - "80:80"
       - "443:443"

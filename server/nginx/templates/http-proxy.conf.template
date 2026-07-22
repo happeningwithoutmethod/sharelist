@@ -9,30 +9,24 @@ server {
         root /var/www/certbot;
     }
 
-    # Flutter web (JS) UI at /web/
+    # Legacy Flutter web paths → landing
     location = /web {
-        return 301 /web/;
+        return 301 /;
     }
 
     location /web/ {
-        proxy_pass http://share-list-web/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Prefix /web;
+        return 301 /;
     }
 
     location = /app {
-        return 301 /web/;
+        return 301 /;
     }
 
     location /app/ {
-        return 301 /web/;
+        return 301 /;
     }
 
-    # Relay API, WebSocket, landing, privacy, etc.
+    # Relay API, WebSocket, landing, privacy, join, etc.
     location / {
         proxy_pass http://share-list:3000;
         proxy_http_version 1.1;

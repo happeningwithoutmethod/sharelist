@@ -1,4 +1,4 @@
-# HTTPS — relay + Flutter web (JS) under /web/
+# HTTPS — relay API, WebSocket, landing, join pages
 
 server {
     listen 443 ssl;
@@ -12,27 +12,21 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_protocols TLSv1.2 TLSv1.3;
 
+    # Legacy Flutter web paths → landing
     location = /web {
-        return 301 /web/;
+        return 301 /;
     }
 
     location /web/ {
-        proxy_pass http://share-list-web/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Prefix /web;
+        return 301 /;
     }
 
-    # Legacy path → new web UI
     location = /app {
-        return 301 /web/;
+        return 301 /;
     }
 
     location /app/ {
-        return 301 /web/;
+        return 301 /;
     }
 
     location / {

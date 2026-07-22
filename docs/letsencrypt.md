@@ -5,15 +5,15 @@ nginx terminates TLS on ports **80** / **443** for one hostname:
 | Path | Backend |
 |------|---------|
 | `https://sharelist.servehttp.com/` | Relay API + WebSocket + landing (`share-list:3000`) |
-| `https://sharelist.servehttp.com/web/` | Flutter web (JS) UI (`share-list-web:80`) |
+| `https://sharelist.servehttp.com/join/…` | Join bridge / short codes (`share-list:3000`) |
+| `https://sharelist.servehttp.com/web/` | Redirects to `/` (Flutter web is not deployed) |
 
 ```
 Internet
    │
    ├─ :80  ──► nginx (ACME + redirect to HTTPS)
    └─ :443 ──► nginx (Let's Encrypt TLS)
-                  ├─ /web/  → share-list-web
-                  └─ /      → share-list:3000
+                  └─ /  → share-list:3000
 ```
 
 ## Prerequisites
@@ -70,15 +70,24 @@ docker compose restart nginx
 ```text
 https://sharelist.servehttp.com/          → relay landing / API
 wss://sharelist.servehttp.com/session     → WebSocket
-https://sharelist.servehttp.com/web/      → Flutter web (JS) app
+https://sharelist.servehttp.com/join/ABC123 → app join bridge
 ```
 
 ```bash
 curl -I https://sharelist.servehttp.com/health
-curl -I https://sharelist.servehttp.com/web/
+curl -I https://sharelist.servehttp.com/
 ```
 
-## Flutter web build
+## Flutter web (optional, not deployed)
 
-`share-list-web` is built with `--base-href=/web/` and relay URLs from `.env`
-(`PUBLIC_URL`, `HOSTNAME`, `PUBLIC_HTTPS_URL`). Legacy `/app/` redirects to `/web/`.
+The Flutter web UI under `apps/mobile` is kept for local/dev use only. It is **not** part of `docker compose` on the server.
+
+To build it locally:
+
+```bash
+docker build -f apps/mobile/Dockerfile.web \
+  --build-arg SERVER_URL=wss://sharelist.servehttp.com \
+  --build-arg SERVER_HOSTNAME=sharelist.servehttp.com \
+  --build-arg JOIN_ORIGIN=https://sharelist.servehttp.com \
+  -t share-list-web .
+```

@@ -42,19 +42,14 @@ class SessionInvite {
     );
   }
 
-  /// Short web join link: `https://host/join/ABC123`.
+  /// Short join link: `https://host/join/ABC123` (opens app bridge page).
   Uri get webUri {
     final code = joinCode?.trim().toUpperCase();
     if (code != null && isJoinCode(code)) {
       return Uri.parse('${ServerConfig.joinOrigin}/join/$code');
     }
     // Fallback when the relay has not assigned a short code yet.
-    return Uri.parse('${ServerConfig.joinOrigin}/web/').replace(
-      queryParameters: {
-        'session': sessionId,
-        'server': serverUrl,
-      },
-    );
+    return httpsUri;
   }
 
   String get shareTextApp =>
@@ -63,11 +58,11 @@ class SessionInvite {
   String get shareTextWeb {
     final code = joinCode?.trim().toUpperCase();
     if (code != null && isJoinCode(code)) {
-      return 'Join my Share List session (web):\n'
+      return 'Join my Share List session:\n'
           '${webUri.toString()}\n'
           'Or enter code: $code';
     }
-    return 'Join my Share List session (web):\n${webUri.toString()}';
+    return 'Join my Share List session:\n${webUri.toString()}';
   }
 
   String get shareText =>

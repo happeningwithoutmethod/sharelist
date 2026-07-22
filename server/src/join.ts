@@ -23,11 +23,9 @@ function renderShortCodeJoinHtml(input: {
   joinCode: string;
   sessionId: string;
   serverUrl: string;
-  webLink: string;
   appLink: string;
 }): string {
   const safeCode = escapeHtml(input.joinCode);
-  const safeWeb = escapeHtml(input.webLink);
   const safeApp = escapeHtml(input.appLink);
 
   return `<!doctype html>
@@ -35,7 +33,6 @@ function renderShortCodeJoinHtml(input: {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="0;url=${safeWeb}" />
   <title>Join Share List · ${safeCode}</title>
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
@@ -59,22 +56,21 @@ function renderShortCodeJoinHtml(input: {
       background: #6c5ce7; color: white; font-weight: 600;
       padding: 14px 16px; border-radius: 12px; margin-bottom: 10px;
     }
-    a.button.secondary {
-      background: transparent; border: 1px solid rgba(255,255,255,.22);
-      color: #f4f4f8;
-    }
+    .hint { margin-top: 8px; font-size: .85rem; color: #b7b7c9; }
   </style>
 </head>
 <body>
   <main>
     <h1>Join Share List</h1>
-    <p>Session code</p>
+    <p>Enter this code in the Share List app, or open the app link below.</p>
     <div class="code">${safeCode}</div>
-    <a class="button" href="${safeWeb}">Join in browser</a>
-    <a class="button secondary" href="${safeApp}">Open in Share List app</a>
+    <a class="button" href="${safeApp}">Open in Share List app</a>
+    <p class="hint">No browser join — use the Android / desktop app.</p>
   </main>
   <script>
-    window.location.replace(${JSON.stringify(input.webLink)});
+    window.setTimeout(function () {
+      window.location.href = ${JSON.stringify(input.appLink)};
+    }, 50);
   </script>
 </body>
 </html>`;
@@ -92,11 +88,8 @@ function renderLegacyAppJoinHtml(url: URL): string {
   if (sessionId) appParams.set('session', sessionId);
   if (serverUrl) appParams.set('server', serverUrl);
   const appLink = `sharelist://join?${appParams.toString()}`;
-  const webQuery = appParams.toString();
-  const webLink = `/web/${webQuery ? `?${webQuery}` : ''}`;
   const safeSession = escapeHtml(sessionId || 'unknown');
   const safeAppLink = escapeHtml(appLink);
-  const safeWebLink = escapeHtml(webLink);
 
   return `<!doctype html>
 <html lang="en">
@@ -125,10 +118,6 @@ function renderLegacyAppJoinHtml(url: URL): string {
       background: #6c5ce7; color: white; font-weight: 600;
       padding: 14px 16px; border-radius: 12px; margin-bottom: 10px;
     }
-    a.button.secondary {
-      background: transparent; border: 1px solid rgba(255,255,255,.22);
-      color: #f4f4f8;
-    }
     .hint { margin-top: 8px; font-size: .85rem; }
   </style>
 </head>
@@ -138,8 +127,7 @@ function renderLegacyAppJoinHtml(url: URL): string {
     <p>Session:</p>
     <code>${safeSession}</code>
     <a class="button" href="${safeAppLink}">Open in Share List app</a>
-    <a class="button secondary" href="${safeWebLink}">Join in browser</a>
-    <p class="hint">Use the app link on a phone with Share List installed, or join in the browser.</p>
+    <p class="hint">Install Share List, then open this link on your phone.</p>
   </main>
   <script>
     window.setTimeout(function () {
@@ -174,7 +162,7 @@ function renderMissingCodeHtml(code: string): string {
   <main>
     <h1>Session not found</h1>
     <p>No active session uses code <strong>${safe}</strong>. Ask the host for a new code.</p>
-    <p><a href="/web/" style="color:#9ad5ff">Open Share List web</a></p>
+    <p><a href="/" style="color:#9ad5ff">Back to Share List</a></p>
   </main>
 </body>
 </html>`;
@@ -270,12 +258,6 @@ export function handleJoinRoutes(
         return true;
       }
 
-      const webParams = new URLSearchParams({
-        session: session.id,
-        server: serverPublicUrl,
-        code: session.joinCode,
-      });
-      const webLink = `/web/?${webParams.toString()}`;
       const appParams = new URLSearchParams({
         session: session.id,
         server: serverPublicUrl,
@@ -291,7 +273,6 @@ export function handleJoinRoutes(
           joinCode: session.joinCode,
           sessionId: session.id,
           serverUrl: serverPublicUrl,
-          webLink,
           appLink,
         }),
       );
