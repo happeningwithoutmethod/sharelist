@@ -24,10 +24,12 @@ function renderShortCodeJoinHtml(input: {
   sessionId: string;
   serverUrl: string;
   webLink: string;
+  flutterWebLink: string;
   appLink: string;
 }): string {
   const safeCode = escapeHtml(input.joinCode);
   const safeWeb = escapeHtml(input.webLink);
+  const safeFlutter = escapeHtml(input.flutterWebLink);
   const safeApp = escapeHtml(input.appLink);
 
   return `<!doctype html>
@@ -70,6 +72,7 @@ function renderShortCodeJoinHtml(input: {
     <p>Session code</p>
     <div class="code">${safeCode}</div>
     <a class="button" href="${safeWeb}">Join in browser</a>
+    <a class="button secondary" href="${safeFlutter}">Open Flutter web</a>
     <a class="button secondary" href="${safeApp}">Open in Share List app</a>
   </main>
 </body>
@@ -90,9 +93,11 @@ function renderLegacyAppJoinHtml(url: URL): string {
   const appLink = `sharelist://join?${appParams.toString()}`;
   const webQuery = appParams.toString();
   const webLink = `/web/${webQuery ? `?${webQuery}` : ''}`;
+  const flutterWebLink = `/app/${webQuery ? `?${webQuery}` : ''}`;
   const safeSession = escapeHtml(sessionId || 'unknown');
   const safeAppLink = escapeHtml(appLink);
   const safeWebLink = escapeHtml(webLink);
+  const safeFlutterLink = escapeHtml(flutterWebLink);
 
   return `<!doctype html>
 <html lang="en">
@@ -134,6 +139,7 @@ function renderLegacyAppJoinHtml(url: URL): string {
     <p>Session:</p>
     <code>${safeSession}</code>
     <a class="button" href="${safeWebLink}">Join in browser</a>
+    <a class="button secondary" href="${safeFlutterLink}">Open Flutter web</a>
     <a class="button secondary" href="${safeAppLink}">Open in Share List app</a>
     <p class="hint">Use the browser on any device, or open the app if installed.</p>
   </main>
@@ -165,7 +171,8 @@ function renderMissingCodeHtml(code: string): string {
   <main>
     <h1>Session not found</h1>
     <p>No active session uses code <strong>${safe}</strong>. Ask the host for a new code.</p>
-    <p><a href="/web/" style="color:#9ad5ff">Open Share List web</a></p>
+    <p><a href="/web/" style="color:#9ad5ff">Open Share List web</a>
+      · <a href="/app/" style="color:#9ad5ff">Flutter web</a></p>
   </main>
 </body>
 </html>`;
@@ -267,6 +274,7 @@ export function handleJoinRoutes(
         code: session.joinCode,
       });
       const webLink = `/web/?${webParams.toString()}`;
+      const flutterWebLink = `/app/?${webParams.toString()}`;
       const appParams = new URLSearchParams({
         session: session.id,
         server: serverPublicUrl,
@@ -283,6 +291,7 @@ export function handleJoinRoutes(
           sessionId: session.id,
           serverUrl: serverPublicUrl,
           webLink,
+          flutterWebLink,
           appLink,
         }),
       );

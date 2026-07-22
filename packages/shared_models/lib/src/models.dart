@@ -1,3 +1,5 @@
+import 'html_entities.dart';
+
 class Track {
   const Track({
     required this.id,
@@ -26,8 +28,8 @@ class Track {
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
         id: json['id'] as String,
-        title: json['title'] as String,
-        artist: json['artist'] as String,
+        title: decodeHtmlEntities(json['title'] as String? ?? ''),
+        artist: decodeHtmlEntities(json['artist'] as String? ?? ''),
         artworkUrl: json['artworkUrl'] as String?,
         sourceUrl: json['sourceUrl'] as String,
         provider: json['provider'] as String,

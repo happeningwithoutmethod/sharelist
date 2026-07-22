@@ -1,4 +1,5 @@
 import { API_ORIGIN, WS_URL } from '../config';
+import { decodeHtmlEntities } from '../lib/htmlEntities';
 import type { Track } from '../protocol/types';
 
 export function httpOriginFromWs(serverUrl: string): string {
@@ -55,7 +56,11 @@ export async function searchMusic(query: string, serverUrl?: string): Promise<Tr
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Search failed (${res.status})`);
   const body = (await res.json()) as { tracks?: Track[] };
-  return body.tracks ?? [];
+  return (body.tracks ?? []).map((track) => ({
+    ...track,
+    title: decodeHtmlEntities(track.title),
+    artist: decodeHtmlEntities(track.artist),
+  }));
 }
 
 export function isJoinCode(raw: string): boolean {

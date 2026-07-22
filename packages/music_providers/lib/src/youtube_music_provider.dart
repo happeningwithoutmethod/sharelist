@@ -78,8 +78,13 @@ class YouTubeMusicProvider implements MusicProvider {
     final snippet = item['snippet'];
     final snippetMap =
         snippet is Map ? Map<String, dynamic>.from(snippet) : null;
-    final title = (snippetMap?['title'] as String?)?.trim();
-    final artist = (snippetMap?['channelTitle'] as String?)?.trim();
+    final rawTitle = (snippetMap?['title'] as String?)?.trim();
+    final rawArtist = (snippetMap?['channelTitle'] as String?)?.trim();
+    final title =
+        rawTitle == null || rawTitle.isEmpty ? null : decodeHtmlEntities(rawTitle);
+    final artist = rawArtist == null || rawArtist.isEmpty
+        ? null
+        : decodeHtmlEntities(rawArtist);
     final thumbs = snippetMap?['thumbnails'];
     String? artworkUrl;
     if (thumbs is Map) {

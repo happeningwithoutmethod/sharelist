@@ -43,6 +43,15 @@ export interface HostState {
   connectors: ConnectorInfo[];
 }
 
+export const DEFAULT_HOST_SETTINGS: HostSettings = {
+  allowSuggestions: true,
+  allowVoting: true,
+  autoReorderByVotes: false,
+  autoPlaylistAdvance: true,
+  autoApproveRequests: false,
+  requireConnectionApproval: false,
+};
+
 export function createEmptyHostState(
   sessionName = 'Share List Session',
 ): HostState {
@@ -53,14 +62,7 @@ export function createEmptyHostState(
     isPlaying: false,
     positionMs: 0,
     durationMs: 0,
-    settings: {
-      allowSuggestions: true,
-      allowVoting: true,
-      autoReorderByVotes: false,
-      autoPlaylistAdvance: true,
-      autoApproveRequests: false,
-      requireConnectionApproval: false,
-    },
+    settings: { ...DEFAULT_HOST_SETTINGS },
     voteScores: {},
     pendingRequests: [],
     connectors: [],

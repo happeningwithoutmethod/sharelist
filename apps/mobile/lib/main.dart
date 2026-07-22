@@ -7,7 +7,7 @@ import 'app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Hosted under /web/; hash routes avoid go_router path mismatches with base-href.
+  // Hosted under /app/; hash routes avoid go_router path mismatches with base-href.
   if (kIsWeb) {
     setUrlStrategy(HashUrlStrategy());
   }

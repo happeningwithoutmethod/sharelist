@@ -6,6 +6,7 @@ nginx terminates TLS on ports **80** / **443** for one hostname:
 |------|---------|
 | `https://sharelist.servehttp.com/` | Relay API + WebSocket + landing (`share-list:3000`) |
 | `https://sharelist.servehttp.com/web/` | React web client (`share-list-client:80`) |
+| `https://sharelist.servehttp.com/app/` | Flutter web client (`share-list-web:80`) |
 | `https://sharelist.servehttp.com/join/…` | Join bridge / short codes (`share-list:3000`) |
 
 ```
@@ -14,6 +15,7 @@ Internet
    ├─ :80  ──► nginx (ACME + redirect to HTTPS)
    └─ :443 ──► nginx (Let's Encrypt TLS)
                   ├─ /web/  → share-list-client
+                  ├─ /app/  → share-list-web
                   └─ /      → share-list:3000
 ```
 
@@ -75,15 +77,23 @@ docker compose restart nginx
 https://sharelist.servehttp.com/          → relay landing / API
 wss://sharelist.servehttp.com/session     → WebSocket
 https://sharelist.servehttp.com/web/      → React web app
+https://sharelist.servehttp.com/app/      → Flutter web app
 https://sharelist.servehttp.com/join/ABC123 → join bridge
 ```
 
 ```bash
 curl -I https://sharelist.servehttp.com/health
 curl -I https://sharelist.servehttp.com/web/
+curl -I https://sharelist.servehttp.com/app/
 ```
 
-## Flutter web (optional)
+## Flutter web
 
-The Flutter web UI under `apps/mobile` remains available for local builds but is
-**not** deployed by Compose. See `apps/mobile/Dockerfile.web`.
+Deployed by Compose as `share-list-web` at `/app/`. Local image build:
+
+```bash
+docker build -f apps/mobile/Dockerfile.web -t share-list-web \
+  --build-arg BASE_HREF=/app/ \
+  --build-arg GOOGLE_WEB_CLIENT_ID=your-web-client-id.apps.googleusercontent.com \
+  .
+```

@@ -6,7 +6,7 @@ Collaborative music playlist app where a **host** plays music and **connectors**
 
 ```
 share-list/
-├── apps/mobile/          # Flutter app (host + connect modes)
+├── apps/mobile/          # Flutter app (host + connect; web build served at /app/)
 ├── client/               # React web client (served at /web/)
 ├── packages/
 │   ├── shared_models/    # Shared Dart models and wire messages
@@ -38,6 +38,8 @@ npm run dev
 ```
 
 Open http://localhost:5173/web/. Production image is `share-list-client` in `server/docker-compose.yml`.
+
+Flutter web is built as `share-list-web` and served at `https://sharelist.servehttp.com/app/`.
 
 ### Mobile app
 

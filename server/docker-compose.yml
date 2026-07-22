@@ -57,6 +57,31 @@ services:
     networks:
       - share-list
 
+  # Flutter web client at /app/ (see ../apps/mobile/Dockerfile.web)
+  share-list-web:
+    build:
+      context: ..
+      dockerfile: apps/mobile/Dockerfile.web
+      args:
+        BASE_HREF: /app/
+        SERVER_URL: ${PUBLIC_URL:-wss://sharelist.servehttp.com}
+        SERVER_HOSTNAME: ${HOSTNAME:-sharelist.servehttp.com}
+        JOIN_ORIGIN: ${PUBLIC_HTTPS_URL:-https://sharelist.servehttp.com}
+        GOOGLE_WEB_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID:-}
+    image: share-list-web:latest
+    container_name: share-list-web
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - share-list
+
   nginx:
     build:
       context: ./nginx
@@ -68,6 +93,8 @@ services:
       share-list:
         condition: service_healthy
       share-list-client:
+        condition: service_started
+      share-list-web:
         condition: service_started
     ports:
       - "80:80"

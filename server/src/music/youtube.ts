@@ -12,6 +12,29 @@ export interface MusicTrackDto {
   provider: string;
 }
 
+/**
+ * Decode HTML entities YouTube sometimes returns in snippet titles
+ * (e.g. &#39; → ', &amp; → &).
+ */
+export function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => {
+      const code = Number.parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    })
+    .replace(/&#(\d+);/g, (_, dec: string) => {
+      const code = Number.parseInt(dec, 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+    })
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
+}
+
 function youtubeApiKey(): string {
   const key = process.env.YOUTUBE_API_KEY?.trim() ?? '';
   if (!key) {
@@ -89,8 +112,11 @@ export async function searchTracks(query: string): Promise<MusicTrackDto[]> {
   for (const item of data.items ?? []) {
     const videoId = item.id?.videoId?.trim() ?? '';
     if (!videoId) continue;
-    const title = item.snippet?.title?.trim() || 'Unknown title';
-    const artist = item.snippet?.channelTitle?.trim() || 'Unknown artist';
+    const title =
+      decodeHtmlEntities(item.snippet?.title?.trim() || '') || 'Unknown title';
+    const artist =
+      decodeHtmlEntities(item.snippet?.channelTitle?.trim() || '') ||
+      'Unknown artist';
     const thumbs = item.snippet?.thumbnails;
     const artworkUrl =
       thumbs?.high?.url ?? thumbs?.medium?.url ?? thumbs?.default?.url;

@@ -18,7 +18,7 @@ final deepLinkBootstrapProvider = Provider<void>((ref) {
   }
 
   if (kIsWeb) {
-    // https://…/web/?session=…&server=…  (and legacy hash invites)
+    // https://…/app/?session=…&server=…  (and /web/, legacy hash invites)
     unawaited(applyInvite(SessionInvite.tryParseWebLocation(Uri.base)));
     return;
   }

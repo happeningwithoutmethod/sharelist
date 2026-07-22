@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { decodeHtmlEntities } from '../lib/htmlEntities';
 import type { Track } from '../protocol/types';
 
 export function TrackRow({
@@ -12,6 +13,8 @@ export function TrackRow({
   actions?: ReactNode;
   active?: boolean;
 }) {
+  const title = decodeHtmlEntities(track.title);
+  const artist = decodeHtmlEntities(track.artist);
   return (
     <div className={`track-row ${active ? 'active' : ''}`}>
       {track.artworkUrl ? (
@@ -20,8 +23,8 @@ export function TrackRow({
         <div className="art placeholder" />
       )}
       <div className="meta">
-        <div className="title">{track.title}</div>
-        <div className="artist">{track.artist}</div>
+        <div className="title">{title}</div>
+        <div className="artist">{artist}</div>
         {meta && <div className="sub">{meta}</div>}
       </div>
       {actions && <div className="actions">{actions}</div>}

@@ -216,13 +216,16 @@ class SessionInvite {
     return tryParseWebLocation(uri) ?? tryParseUri(uri);
   }
 
-  /// Parses invites from the Flutter web URL, e.g.
-  /// `https://host/web/?session=…&server=…` (QR-safe) or
-  /// `https://host/web/#/connect?session=…&server=…` (legacy hash).
+  /// Parses invites from the Flutter / React web URL, e.g.
+  /// `https://host/app/?session=…&server=…`, `https://host/web/?session=…&server=…`
+  /// (QR-safe) or `https://host/app/#/connect?session=…&server=…` (legacy hash).
   static SessionInvite? tryParseWebLocation(Uri uri) {
-    // Preferred / QR-safe: query on /web/
+    // Preferred / QR-safe: query on /app/ or /web/
     final path = uri.path.replaceAll(RegExp(r'/+$'), '');
-    if (path == '/web' || path.endsWith('/web')) {
+    if (path == '/app' ||
+        path.endsWith('/app') ||
+        path == '/web' ||
+        path.endsWith('/web')) {
       final fromQuery = _fromQueryParameters(uri.queryParameters);
       if (fromQuery != null) return fromQuery;
     }

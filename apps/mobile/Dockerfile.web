@@ -1,6 +1,7 @@
-# Optional Flutter web static build (not part of server docker compose).
+# Optional Flutter web static build.
 # From repo root:
 #   docker build -f apps/mobile/Dockerfile.web -t share-list-web .
+# Deployed by server/docker-compose.yml as share-list-web at /app/.
 
 FROM ghcr.io/cirruslabs/flutter:stable AS build
 
@@ -19,7 +20,7 @@ ARG SERVER_URL=wss://sharelist.servehttp.com
 ARG SERVER_HOSTNAME=sharelist.servehttp.com
 ARG JOIN_ORIGIN=https://sharelist.servehttp.com
 ARG GOOGLE_WEB_CLIENT_ID=
-ARG BASE_HREF=/web/
+ARG BASE_HREF=/app/
 
 RUN flutter build web --release --base-href=${BASE_HREF} \
   --dart-define=SERVER_URL=${SERVER_URL} \

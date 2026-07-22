@@ -81,13 +81,15 @@ Or when building the optional Docker web image:
 
 ```bash
 docker build -f apps/mobile/Dockerfile.web \
+  --build-arg BASE_HREF=/app/ \
   --build-arg GOOGLE_WEB_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com \
   -t share-list-web .
 ```
 
 Without this, web sign-in fails with a cryptic null-check (`Null check operator used on a null value`).
 
-Also ensure the Cloud Console Web client lists your site under **Authorized JavaScript origins**.
+Also ensure the Cloud Console Web client lists your site under **Authorized JavaScript origins**
+(`https://sharelist.servehttp.com` covers both `/web/` and `/app/`).
 
 ### Android
 

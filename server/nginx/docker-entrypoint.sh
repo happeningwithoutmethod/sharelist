@@ -17,7 +17,7 @@ if [ -f "$CERT_PATH" ]; then
     < /etc/nginx/templates/http-redirect.conf.template > /etc/nginx/conf.d/http.conf
   envsubst "$SUBST" \
     < /etc/nginx/templates/https.conf.template > /etc/nginx/conf.d/https.conf
-  echo "nginx: TLS enabled for ${RELAY_HOST} (web UI at /web/)"
+  echo "nginx: TLS enabled for ${RELAY_HOST} (React /web/, Flutter /app/)"
 else
   envsubst "$SUBST" \
     < /etc/nginx/templates/http-proxy.conf.template > /etc/nginx/conf.d/http.conf

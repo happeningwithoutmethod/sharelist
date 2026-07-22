@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { searchMusic } from '../api/relay';
+import { BottomNav } from '../components/BottomNav';
 import { TrackRow, formatMs } from '../components/TrackRow';
+import { trackArtist, trackTitle } from '../lib/trackText';
 import type { Track } from '../protocol/types';
 import { useConnectStore } from '../store/connectSession';
 
 type Tab = 'now' | 'playlist' | 'request';
+
+const CONNECT_TABS = [
+  { id: 'now' as const, label: 'Now Playing', icon: 'music_note' },
+  { id: 'playlist' as const, label: 'Playlist', icon: 'queue_music' },
+  { id: 'request' as const, label: 'Request', icon: 'add_circle' },
+];
 
 export function ConnectShell() {
   const navigate = useNavigate();
@@ -37,30 +45,26 @@ export function ConnectShell() {
         <span className={`pill ${connected ? 'ok' : 'bad'}`}>
           {connected ? 'Live' : 'Offline'}
         </span>
+        <Link to="/" className="icon-btn topbar-action" title="Home" aria-label="Home">
+          <span className="material-symbols-outlined">home</span>
+        </Link>
+        <button
+          type="button"
+          className="icon-btn topbar-action danger"
+          title="Leave session"
+          aria-label="Leave session"
+          onClick={async () => {
+            await leave();
+            navigate('/connect');
+          }}
+        >
+          <span className="material-symbols-outlined">logout</span>
+        </button>
       </header>
 
       {!approved && requireApproval && (
         <p className="banner">Waiting for the host to approve your connection…</p>
       )}
-
-      <nav className="tabs">
-        {(
-          [
-            ['now', 'Now Playing'],
-            ['playlist', 'Playlist'],
-            ['request', 'Request'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={tab === id ? 'active' : ''}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
 
       <main className="shell-main">
         {tab === 'now' && <NowPlayingTab />}
@@ -68,21 +72,14 @@ export function ConnectShell() {
         {tab === 'request' && <RequestTab />}
       </main>
 
-      <footer className="shell-footer">
-        <button
-          type="button"
-          className="btn danger"
-          onClick={async () => {
-            await leave();
-            navigate('/connect');
-          }}
-        >
-          Leave session
-        </button>
-        <Link to="/" className="muted small">
-          Home
-        </Link>
-      </footer>
+      <div className="shell-bottom">
+        <BottomNav
+          label="Connect"
+          active={tab}
+          onChange={(id) => setTab(id as Tab)}
+          items={CONNECT_TABS}
+        />
+      </div>
     </div>
   );
 }
@@ -115,8 +112,8 @@ function NowPlayingTab() {
       {track.artworkUrl && (
         <img src={track.artworkUrl} alt="" className="hero-art" />
       )}
-      <h2>{track.title}</h2>
-      <p className="muted">{track.artist}</p>
+      <h2>{trackTitle(track)}</h2>
+      <p className="muted">{trackArtist(track)}</p>
       <p className="mono">
         {formatMs(position)} / {formatMs(state.durationMs)}
         {state.isPlaying ? '' : ' (paused)'}
@@ -137,29 +134,49 @@ function PlaylistTab() {
   return (
     <section className="stack">
       <div className="list">
-        {playlist.map((track, index) => (
-          <TrackRow
-            key={track.id}
-            track={track}
-            active={index === nowPlayingIndex}
-            meta={
-              allowVoting
-                ? `${voteScores[track.id] ?? 0} vote${(voteScores[track.id] ?? 0) === 1 ? '' : 's'}`
-                : undefined
-            }
-            actions={
-              allowVoting ? (
+        {playlist.map((track, index) => {
+          const votes = voteScores[track.id] ?? 0;
+          const hasVoted = voted.has(track.id);
+          return (
+            <div
+              key={track.id}
+              className={`track-row${index === nowPlayingIndex ? ' active' : ''}`}
+            >
+              {index === nowPlayingIndex ? (
+                <span className="now-icon" aria-hidden>
+                  <span className="material-symbols-outlined">equalizer</span>
+                </span>
+              ) : track.artworkUrl ? (
+                <img src={track.artworkUrl} alt="" className="art" />
+              ) : (
+                <div className="art placeholder" />
+              )}
+              <div className="meta">
+                <div className="title">{trackTitle(track)}</div>
+                <div className="artist">
+                  {trackArtist(track)}
+                  {votes > 0 ? ` · ${votes} vote${votes === 1 ? '' : 's'}` : ''}
+                </div>
+              </div>
+              {allowVoting && (
                 <button
                   type="button"
-                  className="btn ghost small"
+                  className={`icon-btn vote-btn${hasVoted ? ' voted' : ''}`}
+                  title={hasVoted ? 'Remove vote' : 'Vote'}
+                  aria-label={hasVoted ? 'Remove vote' : 'Vote'}
+                  aria-pressed={hasVoted}
                   onClick={() => toggleVote(track.id)}
                 >
-                  {voted.has(track.id) ? 'Unvote' : 'Vote'}
+                  <span
+                    className={`material-symbols-outlined${hasVoted ? ' filled' : ''}`}
+                  >
+                    thumb_up
+                  </span>
                 </button>
-              ) : null
-            }
-          />
-        ))}
+              )}
+            </div>
+          );
+        })}
         {playlist.length === 0 && <p className="muted">Playlist is empty</p>}
       </div>
     </section>
@@ -233,7 +250,7 @@ function RequestTab() {
                 className="btn primary small"
                 onClick={() => {
                   requestTrack(track);
-                  setMessage(`Requested “${track.title}”`);
+                  setMessage(`Requested “${trackTitle(track)}”`);
                 }}
               >
                 Request

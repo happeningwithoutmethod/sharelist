@@ -140,6 +140,7 @@ export function HostStart() {
         </button>
 
         <GoogleSignInButton
+          disabled={busy}
           onSignedIn={() => {
             /* user stored; they can start as Google below */
           }}
