@@ -34,8 +34,29 @@ services:
     networks:
       - share-list
 
-  # Flutter web (apps/mobile) is not deployed. Build locally if needed:
-  #   docker build -f apps/mobile/Dockerfile.web -t share-list-web ..
+  # React web client at /web/ (see ../client)
+  share-list-client:
+    build:
+      context: ../client
+      dockerfile: Dockerfile
+      args:
+        VITE_WS_URL: ${PUBLIC_URL:-wss://sharelist.servehttp.com}
+        VITE_API_ORIGIN: ${PUBLIC_HTTPS_URL:-https://sharelist.servehttp.com}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID:-}
+    image: share-list-client:latest
+    container_name: share-list-client
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - share-list
+
   nginx:
     build:
       context: ./nginx
@@ -46,6 +67,8 @@ services:
     depends_on:
       share-list:
         condition: service_healthy
+      share-list-client:
+        condition: service_started
     ports:
       - "80:80"
       - "443:443"

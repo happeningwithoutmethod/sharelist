@@ -1,4 +1,4 @@
-# HTTPS — relay API, WebSocket, landing, join pages
+# HTTPS — relay + React web client under /web/
 
 server {
     listen 443 ssl;
@@ -12,21 +12,26 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_protocols TLSv1.2 TLSv1.3;
 
-    # Legacy Flutter web paths → landing
     location = /web {
-        return 301 /;
+        return 301 /web/;
     }
 
     location /web/ {
-        return 301 /;
+        proxy_pass http://share-list-client/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Prefix /web;
     }
 
     location = /app {
-        return 301 /;
+        return 301 /web/;
     }
 
     location /app/ {
-        return 301 /;
+        return 301 /web/;
     }
 
     location / {
@@ -38,7 +43,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
-        # Keep sync WebSocket frames unbuffered and long-lived.
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 86400s;

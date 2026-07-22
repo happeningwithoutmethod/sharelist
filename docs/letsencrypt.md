@@ -5,15 +5,16 @@ nginx terminates TLS on ports **80** / **443** for one hostname:
 | Path | Backend |
 |------|---------|
 | `https://sharelist.servehttp.com/` | Relay API + WebSocket + landing (`share-list:3000`) |
+| `https://sharelist.servehttp.com/web/` | React web client (`share-list-client:80`) |
 | `https://sharelist.servehttp.com/join/…` | Join bridge / short codes (`share-list:3000`) |
-| `https://sharelist.servehttp.com/web/` | Redirects to `/` (Flutter web is not deployed) |
 
 ```
 Internet
    │
    ├─ :80  ──► nginx (ACME + redirect to HTTPS)
    └─ :443 ──► nginx (Let's Encrypt TLS)
-                  └─ /  → share-list:3000
+                  ├─ /web/  → share-list-client
+                  └─ /      → share-list:3000
 ```
 
 ## Prerequisites
@@ -37,6 +38,9 @@ ENABLE_HTTPS=false
 PUBLIC_HTTP_URL=http://sharelist.servehttp.com
 PUBLIC_HTTPS_URL=https://sharelist.servehttp.com
 PUBLIC_URL=wss://sharelist.servehttp.com
+
+# Optional — Web OAuth client ID baked into the React client image
+# GOOGLE_WEB_CLIENT_ID=xxxxx.apps.googleusercontent.com
 ```
 
 `ENABLE_HTTPS=false` — TLS is handled by nginx, not the Node process.
@@ -70,24 +74,16 @@ docker compose restart nginx
 ```text
 https://sharelist.servehttp.com/          → relay landing / API
 wss://sharelist.servehttp.com/session     → WebSocket
-https://sharelist.servehttp.com/join/ABC123 → app join bridge
+https://sharelist.servehttp.com/web/      → React web app
+https://sharelist.servehttp.com/join/ABC123 → join bridge
 ```
 
 ```bash
 curl -I https://sharelist.servehttp.com/health
-curl -I https://sharelist.servehttp.com/
+curl -I https://sharelist.servehttp.com/web/
 ```
 
-## Flutter web (optional, not deployed)
+## Flutter web (optional)
 
-The Flutter web UI under `apps/mobile` is kept for local/dev use only. It is **not** part of `docker compose` on the server.
-
-To build it locally:
-
-```bash
-docker build -f apps/mobile/Dockerfile.web \
-  --build-arg SERVER_URL=wss://sharelist.servehttp.com \
-  --build-arg SERVER_HOSTNAME=sharelist.servehttp.com \
-  --build-arg JOIN_ORIGIN=https://sharelist.servehttp.com \
-  -t share-list-web .
-```
+The Flutter web UI under `apps/mobile` remains available for local builds but is
+**not** deployed by Compose. See `apps/mobile/Dockerfile.web`.

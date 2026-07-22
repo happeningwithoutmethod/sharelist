@@ -1,0 +1,56 @@
+Arguments: 
+  C:\Program Files\nodejs\node.exe C:\Users\bwjcb\.node\corepack\yarn\1.22.15\bin\yarn.js install
+
+PATH: 
+  C:\Program Files\PowerShell\7;c:\Users\bwjcb\AppData\Local\Programs\cursor\resources\app\node_modules\@vscode\ripgrep\bin;C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin;C:\Program Files\Microsoft MPI\Bin\;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Python310\DLLs\;C:\Users\bwjcb\source\tools\depot_tools;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\Microsoft SQL Server\150\Tools\Binn\;C:\Program Files\Microsoft SQL Server\Client SDK\ODBC\170\Tools\Binn\;C:\Program Files (x86)\Microsoft SQL Server\150\Tools\Binn\;C:\Program Files\Microsoft SQL Server\150\DTS\Binn\;C:\Program Files\Microsoft SQL Server\130\Tools\Binn\;C:\ProgramData\chocolatey\bin;C:\Program Files (x86)\HP\Common\HPDestPlgIn\;C:\Program Files (x86)\HP\IdrsOCR_15.3.1129.0\;C:\Program Files\dotnet\;C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files (x86)\WinMerge;C:\Program Files (x86)\Microsoft SQL Server\160\Tools\Binn\;C:\Program Files\Microsoft SQL Server\160\Tools\Binn\;C:\Program Files\Microsoft SQL Server\160\DTS\Binn\;C:\Users\bwjcb\AppData\Roaming\npm;C:\Program Files (x86)\Microsoft SQL Server\160\DTS\Binn\;C:\Program Files\Erlang OTP\bin\;C:\Program Files\gs\gs10.03.1\bin;C:\Program Files (x86)\gs\gs10.03.1\bin;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\NVIDIA Corporation\NVIDIA app\NvDLISR;c:\Users\bwjcb\AppData\Local\Programs\cursor\resources\app\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Users\bwjcb\AppData\Local\Muse Hub\lib;C:\Program Files (x86)\Incredibuild;C:\Program Files\PowerToys\DSCModules\;C:\Program Files\PuTTY\;C:\Program Files\Java\jdk-26.0.1\bin;C:\Program Files\nodejs\;C:\Program Files\PowerShell\7\;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files\Git\cmd;C:\Users\bwjcb\AppData\Local\Programs\Python\Python311\Scripts\;C:\Users\bwjcb\AppData\Local\Programs\Python\Python311\;C:\Users\bwjcb\AppData\Local\Programs\Python\Python312\Scripts\;C:\Users\bwjcb\AppData\Local\Programs\Python\Python312\;C:\Users\bwjcb\AppData\Local\Microsoft\WindowsApps;C:\Users\bwjcb\.dotnet\tools;C:\Users\bwjcb\AppData\Local\Programs\Microsoft VS Code\bin;C:\Program Files\Azure Data Studio\bin;C:\Users\bwjcb\source\tools\depot_tools;C:\Dev-Tools;C:\Dev\boost;C:\Dev-Tools\NuGet;C:\Program Files (x86)\HP\Common\HPDestPlgIn\;C:\Program Files\Git\mingw64\bin;C:\Users\bwjcb\AppData\Local\Programs\Fiddler;C:\Dev-Tools\gradle-8.0.2\bin;C:\Program Files\PostgreSQL\10\bin;C:\Users\bwjcb\.dotnet\tools;C:\Program Files\JetBrains\Writerside 233.14938\bin;C:\Program Files\Erlang OTP\bin;C:\Program Files\RabbitMQ Server\rabbitmq_server-3.13.3\sbin;C:\Users\bwjcb\AppData\Local\Muse Hub\lib;C:\Users\bwjcb\AppData\Local\GitHubDesktop\bin;C:\Users\bwjcb\AppData\Local\Microsoft\WinGet\Links;C:\Users\bwjcb\AppData\Local\Programs\cursor\resources\app\bin;C:\Users\bwjcb\AppData\Local\Microsoft\WindowsApps;E:\tools\flutter\bin;C:\Program Files\nodejs;D:\Dev\tools\flutter\bin;C:\Users\bwjcb\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;C:\Users\bwjcb\AppData\Roaming\npm
+
+Yarn version: 
+  1.22.15
+
+Node version: 
+  24.18.0
+
+Platform: 
+  win32 x64
+
+Trace: 
+  Error: unable to verify the first certificate; if the root CA is installed locally, try running Node.js with --use-system-ca
+      at TLSSocket.onConnectSecure (node:internal/tls/wrap:1748:34)
+      at TLSSocket.emit (node:events:509:28)
+      at TLSSocket._finishInit (node:internal/tls/wrap:1185:8)
+      at ssl.onhandshakedone (node:internal/tls/wrap:966:12)
+
+npm manifest: 
+  {
+    "name": "share-list-client",
+    "private": true,
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+      "dev": "vite",
+      "build": "tsc --noEmit && vite build",
+      "preview": "vite preview"
+    },
+    "dependencies": {
+      "qrcode.react": "^4.2.0",
+      "react": "^19.0.0",
+      "react-dom": "^19.0.0",
+      "react-router-dom": "^7.0.0",
+      "uuid": "^11.0.0",
+      "zustand": "^4.5.0"
+    },
+    "devDependencies": {
+      "@types/react": "^19.0.0",
+      "@types/react-dom": "^19.0.0",
+      "@types/uuid": "^10.0.0",
+      "@vitejs/plugin-react": "^4.3.0",
+      "typescript": "~5.8.0",
+      "vite": "^6.0.0"
+    }
+  }
+
+yarn manifest: 
+  No manifest
+
+Lockfile: 
+  No lockfile

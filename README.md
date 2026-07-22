@@ -7,6 +7,7 @@ Collaborative music playlist app where a **host** plays music and **connectors**
 ```
 share-list/
 ├── apps/mobile/          # Flutter app (host + connect modes)
+├── client/               # React web client (served at /web/)
 ├── packages/
 │   ├── shared_models/    # Shared Dart models and wire messages
 │   └── music_providers/  # MusicProvider interface + YouTube Music
@@ -27,6 +28,16 @@ npm run dev
 Server listens on `http://localhost:3000` with WebSocket at `ws://localhost:3000/session`.
 
 For Android emulator, set `PUBLIC_URL=ws://10.0.2.2:3000` when starting the server.
+
+### React web client
+
+```bash
+cd client
+npm install   # or yarn
+npm run dev
+```
+
+Open http://localhost:5173/web/. Production image is `share-list-client` in `server/docker-compose.yml`.
 
 ### Mobile app
 
