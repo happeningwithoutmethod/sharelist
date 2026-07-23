@@ -1,47 +1,73 @@
 # Share List
 
-Collaborative music playlist app where a **host** plays music and **connectors** join via QR code to request songs and vote.
+Collaborative music playlist app: a **host** plays YouTube tracks and **connectors** join via QR / code / link to request songs and vote.
+
+Production: [https://sharelist.servehttp.com](https://sharelist.servehttp.com)
+
+| Path | What |
+|------|------|
+| `/` | Relay landing, API, WebSocket, join bridge |
+| `/web/` | React web client |
+| `/app/` | Flutter web client |
+| `/apk` | Latest Android APK download |
 
 ## Structure
 
 ```
 share-list/
-├── apps/mobile/          # Flutter app (host + connect; web build served at /app/)
-├── client/               # React web client (served at /web/)
+├── apps/mobile/          # Flutter app (Android / iOS / web → /app/)
+├── client/               # React Vite client → /web/
 ├── packages/
 │   ├── shared_models/    # Shared Dart models and wire messages
-│   └── music_providers/  # MusicProvider interface + YouTube Music
-├── server/               # Node.js WebSocket relay server
-└── README.md
+│   └── music_providers/  # MusicProvider + YouTube search
+├── server/               # Node.js WebSocket relay + docker compose
+├── docs/                 # Deploy, OAuth, YouTube API, iOS, etc.
+├── build-apk.ps1         # Bump version + build release APK → build/
+├── copy-apk.ps1          # SCP latest APK to Ubuntu host as sharelist-latest.apk
+└── copy-env.ps1          # SCP server/.env + client/.env to Ubuntu host
 ```
 
-## Quick start
+## Modes
 
-### Relay server
+- **Host** — Start a session (Google Sign-In or guest), play music, manage playlist / approvals.
+- **Connect** — Join via QR, 6-character code, or share link. Request songs and vote.
+
+The relay routes WebSocket traffic and keeps an orphaned session alive for **~30 minutes** after the host disconnects so host and connectors can reconnect.
+
+## Local development
+
+### Relay
 
 ```bash
 cd server
+cp .env.example .env   # edit as needed
 npm install
 npm run dev
 ```
 
-Server listens on `http://localhost:3000` with WebSocket at `ws://localhost:3000/session`.
+- HTTP: `http://localhost:3000`
+- WebSocket: `ws://localhost:3000/session`
 
-For Android emulator, set `PUBLIC_URL=ws://10.0.2.2:3000` when starting the server.
+Android emulator → host machine: set `PUBLIC_URL=ws://10.0.2.2:3000`.
 
-### React web client
+### React client
 
 ```bash
 cd client
-npm install   # or yarn
+cp .env.example .env
+npm install
 npm run dev
 ```
 
-Open http://localhost:5173/web/. Production image is `share-list-client` in `server/docker-compose.yml`.
+Open http://localhost:5173/web/
 
-Flutter web is built as `share-list-web` and served at `https://sharelist.servehttp.com/app/`.
+```env
+VITE_WS_URL=wss://sharelist.servehttp.com
+VITE_API_ORIGIN=https://sharelist.servehttp.com
+VITE_GOOGLE_CLIENT_ID=your-web-client-id.apps.googleusercontent.com
+```
 
-### Mobile app
+### Flutter app
 
 ```bash
 cd apps/mobile
@@ -49,15 +75,58 @@ flutter pub get
 flutter run
 ```
 
-Configure Google Sign-In OAuth client IDs in:
-- `android/app/src/main/res/values/strings.xml`
-- iOS `Info.plist` / GoogleService-Info.plist (for production)
+Google Sign-In setup: [docs/google.md](docs/google.md). iOS ship notes: [docs/ios-app-instructions.md](docs/ios-app-instructions.md).
 
-## Modes
+## Production (Docker)
 
-- **Host mode** — Google Sign-In required. Starts session, plays music, manages playlist.
-- **Connect mode** — Scan host QR code. Optional Google login for display name. Request songs and vote.
+Stack lives in `server/docker-compose.yml` (nginx TLS, relay, React client, Flutter web, certbot). Full guide: [docs/letsencrypt.md](docs/letsencrypt.md).
 
-## Architecture
+```bash
+cd server
+cp .env.example .env
+cp ../client/.env.example ../client/.env
+# edit both .env files
 
-The relay server routes WebSocket messages between host and connectors and caches session state for 30-minute host reconnect. All playlist logic runs on the host device.
+docker compose up -d --build
+docker compose --profile certs run --rm certbot-init
+docker compose restart nginx
+```
+
+**Host-mounted env (no image rebuild to change secrets):**
+
+| Host file | Container |
+|-----------|-----------|
+| `server/.env` | `share-list` → `/app/.env` |
+| `client/.env` | `share-list-client` → `/config/.env` → `/web/env.js` |
+
+After editing env on the server:
+
+```bash
+docker compose up -d --force-recreate share-list share-list-client
+```
+
+YouTube Data API key (`YOUTUBE_API_KEY`): [docs/youtube_data_api.md](docs/youtube_data_api.md).
+
+## Deploy helpers (Windows → Ubuntu)
+
+Defaults: `hwm@192.168.1.222`, repo `~/dev/sharelist`.
+
+```powershell
+.\build-apk.ps1          # release APK → build/share-list-0.0.N-release.apk
+.\copy-apk.ps1           # → …/server/public/apk/sharelist-latest.apk
+.\copy-env.ps1           # server/.env + client/.env → Ubuntu host
+.\copy-env.ps1 -ServerOnly
+.\copy-env.ps1 -ClientOnly
+```
+
+APK is served at https://sharelist.servehttp.com/apk (nginx bind-mount of `server/public/apk/`).
+
+## Docs
+
+| Doc | Topic |
+|-----|--------|
+| [docs/letsencrypt.md](docs/letsencrypt.md) | HTTPS + Docker routes |
+| [docs/google.md](docs/google.md) | Google OAuth (Android / iOS / web) |
+| [docs/youtube_data_api.md](docs/youtube_data_api.md) | Search API key |
+| [docs/ios-app-instructions.md](docs/ios-app-instructions.md) | iOS build & App Store |
+| [client/README.md](client/README.md) | React client details |

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Load the host-mounted .env (may be mode 600) by copying as root, then
-# drop privileges and start Node with --env-file.
+# drop privileges with BusyBox su and start Node with --env-file.
 set -eu
 
 SRC="${ENV_FILE:-/app/.env}"
@@ -16,4 +16,6 @@ fi
 chown sharelist:sharelist "$DST"
 chmod 400 "$DST"
 
-exec su-exec sharelist node --use-system-ca --env-file="$DST" dist/index.js
+# BusyBox su (no su-exec / apk dependency). --env-file is owned by sharelist.
+exec su -s /bin/sh sharelist -c \
+  "exec node --use-system-ca --env-file='$DST' dist/index.js"

@@ -24,8 +24,8 @@ ENV NODE_ENV=production \
     ENABLE_HTTPS=false \
     ENV_FILE=/app/.env
 
-RUN apk add --no-cache su-exec \
-  && addgroup -S sharelist && adduser -S sharelist -G sharelist \
+# No extra apk packages — BusyBox su is enough to drop privileges after reading .env.
+RUN addgroup -S sharelist && adduser -S sharelist -G sharelist \
   && mkdir -p /app/data /app/certs \
   && chown -R sharelist:sharelist /app
 
@@ -34,7 +34,8 @@ COPY --from=build --chown=sharelist:sharelist /app/node_modules ./node_modules
 COPY --from=build --chown=sharelist:sharelist /app/dist ./dist
 COPY --chown=sharelist:sharelist public ./public
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.sh \
+  && chmod +x /docker-entrypoint.sh
 
 # Entrypoint runs as root briefly to read the mounted .env, then drops to sharelist.
 USER root
