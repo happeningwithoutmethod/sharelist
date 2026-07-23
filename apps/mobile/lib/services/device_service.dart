@@ -35,6 +35,7 @@ class SessionPersistence {
   static const _serverUrlKey = 'host_server_url';
   static const _hostSubKey = 'host_google_sub';
   static const _joinCodeKey = 'host_join_code';
+  static const _hostStateKey = 'host_session_state';
   static const _savedConnectionsKey = 'saved_connections';
   static const _maxSavedConnections = 20;
   static const _activeConnectorInviteKey = 'active_connector_invite';
@@ -45,6 +46,7 @@ class SessionPersistence {
     required String serverUrl,
     required String hostGoogleSub,
     String? joinCode,
+    HostState? state,
   }) async {
     await _prefs.setString(_sessionIdKey, sessionId);
     await _prefs.setString(_sessionTokenKey, sessionToken);
@@ -54,6 +56,23 @@ class SessionPersistence {
       await _prefs.setString(_joinCodeKey, joinCode.toUpperCase());
     } else {
       await _prefs.remove(_joinCodeKey);
+    }
+    if (state != null) {
+      await saveHostPlaylistState(state);
+    }
+  }
+
+  Future<void> saveHostPlaylistState(HostState state) async {
+    await _prefs.setString(_hostStateKey, jsonEncode(state.toJson()));
+  }
+
+  Future<HostState?> loadHostPlaylistState() async {
+    final raw = _prefs.getString(_hostStateKey);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return HostState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
     }
   }
 
@@ -83,6 +102,7 @@ class SessionPersistence {
     await _prefs.remove(_serverUrlKey);
     await _prefs.remove(_hostSubKey);
     await _prefs.remove(_joinCodeKey);
+    await _prefs.remove(_hostStateKey);
   }
 
   Future<List<SavedConnection>> loadSavedConnections() async {

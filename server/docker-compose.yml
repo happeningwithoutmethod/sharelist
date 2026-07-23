@@ -6,8 +6,6 @@ services:
     image: share-list-server:latest
     container_name: share-list-server
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       HOST: 0.0.0.0
       PORT: 3000
@@ -16,6 +14,8 @@ services:
       ENABLE_HTTPS: "false"
       PLAY_LOG_PATH: /app/data/play-log.json
     volumes:
+      # Host .env is the runtime source of truth (Node --env-file=.env).
+      - ./.env:/app/.env:ro
       - share-list-data:/app/data
     expose:
       - "3000"
@@ -39,13 +39,14 @@ services:
     build:
       context: ../client
       dockerfile: Dockerfile
-      args:
-        VITE_WS_URL: ${PUBLIC_URL:-wss://sharelist.servehttp.com}
-        VITE_API_ORIGIN: ${PUBLIC_HTTPS_URL:-https://sharelist.servehttp.com}
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_WEB_CLIENT_ID:-}
     image: share-list-client:latest
     container_name: share-list-client
     restart: unless-stopped
+    environment:
+      ENV_FILE: /config/.env
+    volumes:
+      # Host client/.env is injected into /web/env.js on container start.
+      - ../client/.env:/config/.env:ro
     expose:
       - "80"
     healthcheck:

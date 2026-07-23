@@ -85,6 +85,22 @@ class _ConnectShellState extends ConsumerState<ConnectShell>
       );
     }
 
+    if (connect.isReconnecting && !connect.connected) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Reconnecting…')),
+        body: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Rejoining the host session…'),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (connect.error != null && !connect.connected) {
       return Scaffold(
         appBar: AppBar(title: const Text('Disconnected')),
@@ -124,6 +140,11 @@ class _ConnectShellState extends ConsumerState<ConnectShell>
           ],
         ),
         actions: [
+          if (connect.isReconnecting)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Center(child: Text('Reconnecting…')),
+            ),
           IconButton(
             onPressed: _leaveToHome,
             icon: const Icon(Icons.logout),

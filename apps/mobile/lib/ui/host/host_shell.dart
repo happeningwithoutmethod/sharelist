@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:floating/floating.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,6 +31,8 @@ class _HostShellState extends ConsumerState<HostShell>
     with WidgetsBindingObserver {
   int _index = 0;
   final _youtubeBarKey = GlobalKey();
+  final _floating = Floating();
+  var _pipOnLeaveArmed = false;
 
   static const _pages = <Widget>[
     _HostSessionTab(),
@@ -37,6 +41,9 @@ class _HostShellState extends ConsumerState<HostShell>
     HostRequestScreen(),
     HostSettingsScreen(),
   ];
+
+  bool get _supportsPip =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   @override
   void initState() {
@@ -47,12 +54,16 @@ class _HostShellState extends ConsumerState<HostShell>
       if (!host.connected && !host.isReconnecting) {
         if (mounted) context.go('/host');
       }
+      unawaited(_syncPipOnLeave());
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    if (_supportsPip && _pipOnLeaveArmed) {
+      unawaited(_floating.cancelOnLeavePiP());
+    }
     super.dispose();
   }
 
@@ -60,7 +71,45 @@ class _HostShellState extends ConsumerState<HostShell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(ref.read(hostSessionProvider.notifier).handleAppResumed());
+      unawaited(_syncPipOnLeave());
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      // Keep OnLeave PiP armed while playback is active so Home/minimize
+      // shrinks into a hovering window instead of suspending the WebView.
+      unawaited(_syncPipOnLeave());
     }
+  }
+
+  Future<void> _syncPipOnLeave() async {
+    if (!_supportsPip || !mounted) return;
+    final host = ref.read(hostSessionProvider);
+    final playing = host.connected && host.state.isPlaying;
+    try {
+      if (playing) {
+        if (!_pipOnLeaveArmed) {
+          await _floating.enable(
+            const OnLeavePiP(aspectRatio: Rational.landscape()),
+          );
+          _pipOnLeaveArmed = true;
+        }
+      } else if (_pipOnLeaveArmed) {
+        await _floating.cancelOnLeavePiP();
+        _pipOnLeaveArmed = false;
+      }
+    } catch (error) {
+      debugPrint('PiP sync failed: $error');
+    }
+  }
+
+  Future<void> _leaveHostShell() async {
+    if (_supportsPip && _pipOnLeaveArmed) {
+      try {
+        await _floating.cancelOnLeavePiP();
+      } catch (_) {}
+      _pipOnLeaveArmed = false;
+    }
+    await ref.read(playbackProvider.notifier).stopPlayback();
+    if (mounted) context.go('/host');
   }
 
   @override
@@ -69,6 +118,13 @@ class _HostShellState extends ConsumerState<HostShell>
     // Keep the playback controller alive for the whole host session, not only
     // while the Control tab is visible.
     ref.watch(playbackProvider);
+    ref.listen<HostSessionState>(hostSessionProvider, (previous, next) {
+      if (previous?.state.isPlaying != next.state.isPlaying ||
+          previous?.connected != next.connected) {
+        unawaited(_syncPipOnLeave());
+      }
+    });
+
     final onControlTab = _index == 1;
     final onListsTab = _index == 2;
     final hasActiveTrack =
@@ -76,7 +132,7 @@ class _HostShellState extends ConsumerState<HostShell>
     // On non-control tabs, only keep the mini iframe while a track is loaded.
     final showMiniPlayer = !onControlTab && hasActiveTrack;
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: AppBar(
         title: Text(host.state.sessionName),
         leading: BackButton(
@@ -101,8 +157,7 @@ class _HostShellState extends ConsumerState<HostShell>
               ),
             );
             if (shouldLeave == true && context.mounted) {
-              await ref.read(playbackProvider.notifier).stopPlayback();
-              if (context.mounted) context.go('/host');
+              await _leaveHostShell();
             }
           },
         ),
@@ -138,8 +193,7 @@ class _HostShellState extends ConsumerState<HostShell>
                     const SizedBox(height: 16),
                     FilledButton(
                       onPressed: () async {
-                        await ref.read(playbackProvider.notifier).stopPlayback();
-                        if (context.mounted) context.go('/host');
+                        await _leaveHostShell();
                       },
                       child: const Text('Back to start'),
                     ),
@@ -181,6 +235,27 @@ class _HostShellState extends ConsumerState<HostShell>
           ),
           const NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],
+      ),
+    );
+
+    if (!_supportsPip) return scaffold;
+
+    // In system PiP, show only the YouTube player so audio keeps playing in a
+    // floating window when the host minimizes the app.
+    return PiPSwitcher(
+      childWhenDisabled: scaffold,
+      childWhenEnabled: Material(
+        color: Colors.black,
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: YoutubePlayer(
+              controller:
+                  ref.read(playbackProvider.notifier).youtubeController,
+              aspectRatio: 16 / 9,
+            ),
+          ),
+        ),
       ),
     );
   }

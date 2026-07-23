@@ -16,6 +16,8 @@
       rel="stylesheet"
     />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Production: overwritten from the host-mounted .env at container start -->
+    <script src="/web/env.js"></script>
   </head>
   <body>
     <div id="root"></div>

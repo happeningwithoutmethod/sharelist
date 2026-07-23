@@ -43,11 +43,23 @@ PUBLIC_HTTP_URL=http://sharelist.servehttp.com
 PUBLIC_HTTPS_URL=https://sharelist.servehttp.com
 PUBLIC_URL=wss://sharelist.servehttp.com
 
-# Optional — Web OAuth client ID baked into the React client image
+# Optional — Web OAuth client ID for the React client (client/.env)
+# and Flutter web build arg:
 # GOOGLE_WEB_CLIENT_ID=xxxxx.apps.googleusercontent.com
 ```
 
 `ENABLE_HTTPS=false` — TLS is handled by nginx, not the Node process.
+
+Create the host env files before `compose up` (Compose bind-mounts them):
+
+```bash
+cp .env.example .env                 # server/.env → /app/.env
+cp ../client/.env.example ../client/.env
+```
+
+Edit `client/.env` for `VITE_GOOGLE_CLIENT_ID` / WS / API origin. Restart
+`share-list-client` after changes (no rebuild). Restart `share-list` after
+`server/.env` changes.
 
 ## 2. Start the stack
 

@@ -28,6 +28,17 @@ class PlaybackController extends StateNotifier<AsyncValue<void>> {
       if (_playlistOrderChanged(previous?.state, next.state)) {
         _syncIndexToPlaylist(next.state);
       }
+      // After cold reconnect restores a playlist, resume the now-playing track.
+      final restoredPlaylist = (previous?.state.playlist.isEmpty ?? true) &&
+          next.state.playlist.isNotEmpty &&
+          next.connected;
+      if (restoredPlaylist &&
+          next.state.isPlaying &&
+          _currentIndex < 0 &&
+          next.state.nowPlayingIndex >= 0 &&
+          next.state.nowPlayingIndex < next.state.playlist.length) {
+        unawaited(playIndex(next.state.nowPlayingIndex));
+      }
     });
     _init();
   }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -34,9 +36,29 @@ class _ConnectJoinScreenState extends ConsumerState<ConnectJoinScreen> {
     if (user != null) {
       _nameController.text = user.displayName;
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeJoinPendingInvite();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _maybeJoinPendingInvite();
+      if (!mounted) return;
+      if (ref.read(connectSessionProvider).connected) return;
+      await _maybeResumeActiveSession();
     });
+  }
+
+  Future<void> _maybeResumeActiveSession() async {
+    if (!mounted || _joining) return;
+    setState(() => _joining = true);
+    try {
+      final resumed =
+          await ref.read(connectSessionProvider.notifier).tryResumeActiveInvite();
+      if (!mounted) return;
+      if (resumed) {
+        context.go('/connect/session');
+      }
+    } catch (_) {
+      // Fall through to the normal join UI.
+    } finally {
+      if (mounted) setState(() => _joining = false);
+    }
   }
 
   @override
