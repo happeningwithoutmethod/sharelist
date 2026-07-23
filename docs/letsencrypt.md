@@ -70,6 +70,14 @@ docker compose up -d --build
 
 Until certificates exist, nginx proxies **HTTP only** on port 80.
 
+Flutter web (`/app/`) is optional — enable with:
+
+```bash
+docker compose --profile flutter-web up -d --build
+```
+
+(Requires the builder to reach https://pub.dev; the Dockerfile retries `flutter pub get` on transient network errors.)
+
 ## 3. Obtain Let's Encrypt certificate
 
 ```bash

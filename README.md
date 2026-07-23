@@ -90,6 +90,9 @@ cp ../client/.env.example ../client/.env
 docker compose up -d --build
 docker compose --profile certs run --rm certbot-init
 docker compose restart nginx
+
+# Optional Flutter web at /app/ (needs outbound access to pub.dev during build):
+# docker compose --profile flutter-web up -d --build
 ```
 
 **Host-mounted env (no image rebuild to change secrets):**

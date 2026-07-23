@@ -1,7 +1,8 @@
 # Optional Flutter web static build.
 # From repo root:
 #   docker build -f apps/mobile/Dockerfile.web -t share-list-web .
-# Deployed by server/docker-compose.yml as share-list-web at /app/.
+# Compose profile: docker compose --profile flutter-web up -d --build
+# Served at /app/ when the profile is enabled.
 
 FROM ghcr.io/cirruslabs/flutter:stable AS build
 
@@ -12,7 +13,21 @@ COPY packages/shared_models /src/packages/shared_models
 COPY packages/music_providers /src/packages/music_providers
 COPY apps/mobile/pubspec.yaml apps/mobile/pubspec.lock /src/apps/mobile/
 WORKDIR /src/apps/mobile
-RUN flutter pub get
+
+# pub.dev is occasionally unreachable from builders — retry before failing the image.
+RUN set -eu; \
+  i=1; \
+  while [ "$i" -le 6 ]; do \
+    echo "flutter pub get (attempt $i/6)..."; \
+    if flutter pub get; then \
+      exit 0; \
+    fi; \
+    echo "pub get failed; waiting before retry..."; \
+    sleep $((i * 8)); \
+    i=$((i + 1)); \
+  done; \
+  echo "flutter pub get failed after retries (check DNS / access to https://pub.dev)"; \
+  exit 1
 
 COPY apps/mobile /src/apps/mobile
 

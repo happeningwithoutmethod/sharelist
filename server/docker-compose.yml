@@ -58,8 +58,10 @@ services:
     networks:
       - share-list
 
-  # Flutter web client at /app/ (see ../apps/mobile/Dockerfile.web)
+  # Flutter web client at /app/ (optional — needs pub.dev during build)
+  # Enable with: docker compose --profile flutter-web up -d --build
   share-list-web:
+    profiles: ["flutter-web"]
     build:
       context: ..
       dockerfile: apps/mobile/Dockerfile.web
@@ -94,8 +96,6 @@ services:
       share-list:
         condition: service_healthy
       share-list-client:
-        condition: service_started
-      share-list-web:
         condition: service_started
     ports:
       - "80:80"
